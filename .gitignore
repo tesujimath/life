@@ -1,0 +1,16 @@
+/.direnv/
+
+# Added by cargo
+
+/target
+
+# performance output
+/flamegraph.svg
+/perf.data
+/perf.data.old
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
