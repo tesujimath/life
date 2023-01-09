@@ -140,4 +140,15 @@ fn test_row_set() {
             ])
         }
     );
+
+    row.set(8, 8u8);
+    assert_eq!(
+        *row,
+        Row {
+            spans: VecDeque::from(vec![Span {
+                left: 7,
+                cells: VecDeque::from(vec![7u8, 8u8, 9u8, 10u8, 11u8])
+            }])
+        }
+    );
 }

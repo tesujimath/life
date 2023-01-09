@@ -52,6 +52,10 @@ impl Span {
     fn push_back(&mut self, cell: u8) {
         self.cells.push_back(cell);
     }
+
+    fn append(&mut self, other: &mut Span) {
+        self.cells.append(&mut other.cells);
+    }
 }
 
 impl Ord2<i32> for Span {
@@ -89,6 +93,10 @@ impl Row {
                     let span_i = &mut self.spans[i_span];
                     if span_i.adjoins_left(i_cell) {
                         span_i.push_front(cell);
+
+                        if i_span > 0 && self.spans[i_span - 1].adjoins_right(i_cell) {
+                            self.coelesce_left(i_span);
+                        }
                     } else if i_span > 0 {
                         let span_left = &mut self.spans[i_span - 1];
                         if span_left.adjoins_right(i_cell) {
@@ -97,7 +105,7 @@ impl Row {
                             self.spans.insert(i_span, Span::new(i_cell, cell));
                         }
                     } else {
-                        self.spans.push_back(Span::new(i_cell, cell));
+                        self.spans.push_front(Span::new(i_cell, cell));
                     }
                 } else {
                     match self.spans.back_mut() {
@@ -114,6 +122,15 @@ impl Row {
                 }
             }
         }
+    }
+
+    fn coelesce_left(&mut self, i_span: usize) {
+        // need somewhere to move cells out of the span to be removed,
+        // to avoid repeated mutable borrow from seperate VecDeque indices
+        let mut cells: VecDeque<u8> = VecDeque::new();
+        cells.append(&mut self.spans[i_span].cells);
+        self.spans.remove(i_span);
+        self.spans[i_span - 1].cells.append(&mut cells);
     }
 }
 
