@@ -52,10 +52,6 @@ impl Span {
     fn push_back(&mut self, cell: u8) {
         self.cells.push_back(cell);
     }
-
-    fn append(&mut self, other: &mut Span) {
-        self.cells.append(&mut other.cells);
-    }
 }
 
 impl Ord2<i32> for Span {
