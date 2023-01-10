@@ -94,18 +94,31 @@ where
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
-struct OrderedContigs {
-    contigs: VecDeque<Contig<i32>>, // TODO make generic
+struct OrderedContigs<I>
+where
+    I: Copy,
+{
+    contigs: VecDeque<Contig<I>>, // TODO make generic
 }
 
-impl OrderedContigs {
-    fn new() -> OrderedContigs {
+impl<I> OrderedContigs<I>
+where
+    I: Copy
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = I>
+        + Sub<Output = I>
+        + PartialOrd
+        + SubAssign,
+{
+    fn new() -> OrderedContigs<I> {
         OrderedContigs {
             contigs: VecDeque::new(),
         }
     }
 
-    fn set(&mut self, i: i32, item: u8) {
+    fn set(&mut self, i: I, item: u8) {
         match self.contigs.binary_search_by(|c| c.cmp(&i)) {
             Ok(i_c) => {
                 self.contigs[i_c].set(i, item);
@@ -157,7 +170,7 @@ impl OrderedContigs {
 #[derive(Debug)]
 struct Drop {
     bottom: i32,
-    rows: VecDeque<OrderedContigs>,
+    rows: VecDeque<OrderedContigs<i32>>,
 }
 
 /// ordered list of drops, ordered by `bottom`, and coelesced opportunistically
