@@ -151,41 +151,50 @@ where
         }
     }
 
+    fn get_mut_contig_left(&mut self, i_c: usize) -> Option<&mut Contig<Idx, T>> {
+        if i_c > 0 {
+            self.contigs.get_mut(i_c - 1)
+        } else {
+            None
+        }
+    }
+
     fn set(&mut self, i: Idx, item: T) {
         match self.contigs.binary_search_by(|c| c.cmp(&i)) {
             Ok(i_c) => {
                 self.contigs[i_c][i] = item;
             }
             Err(i_c) => {
-                if i_c < self.contigs.len() {
-                    let c_i = &mut self.contigs[i_c];
-                    if c_i.adjoins_left(i) {
+                match self.contigs.get_mut(i_c) {
+                    Some(c_i) if c_i.adjoins_left(i) => {
                         c_i.push_front(item);
 
                         if i_c > 0 && self.contigs[i_c - 1].adjoins_right(i) {
                             self.coelesce_left(i_c);
                         }
-                    } else if i_c > 0 {
-                        let c_left = &mut self.contigs[i_c - 1];
-                        if c_left.adjoins_right(i) {
+                    }
+
+                    Some(_) => match self.get_mut_contig_left(i_c) {
+                        Some(c_left) if c_left.adjoins_right(i) => {
                             c_left.push_back(item);
-                        } else {
+                        }
+                        _ => {
                             self.contigs.insert(i_c, Contig::new(i, item));
                         }
-                    } else {
-                        self.contigs.push_front(Contig::new(i, item));
-                    }
-                } else {
-                    match self.contigs.back_mut() {
-                        Some(c_left) => {
-                            // TODO extract out common code with above
-                            if c_left.adjoins_right(i) {
-                                c_left.push_back(item);
-                            } else {
-                                self.contigs.insert(i_c, Contig::new(i, item));
+                    },
+
+                    None => {
+                        match self.contigs.back_mut() {
+                            Some(c_left) => {
+                                // TODO extract out common code with above
+                                if c_left.adjoins_right(i) {
+                                    c_left.push_back(item);
+                                } else {
+                                    self.contigs.insert(i_c, Contig::new(i, item));
+                                }
                             }
+                            None => self.contigs.push_back(Contig::new(i, item)),
                         }
-                        None => self.contigs.push_back(Contig::new(i, item)),
                     }
                 }
             }
