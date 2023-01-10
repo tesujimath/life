@@ -1,8 +1,13 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
+use num::FromPrimitive;
+use num::Integer;
+use num::One;
+use num::ToPrimitive;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
+use std::ops::SubAssign;
 
 /// a trait like Ord<RHS>
 /// see https://github.com/rust-lang/rfcs/issues/2511
@@ -12,57 +17,66 @@ trait Ord2<RHS> {
 
 /// a block of contiguous items
 #[derive(Debug, Eq, PartialEq)]
-struct Contig {
+struct Contig<I>
+where
+    I: Copy,
+{
     /// position of leftmost item
-    origin: i32,
+    origin: I,
     items: VecDeque<u8>,
 }
 
-impl Contig {
-    fn new(i: i32, item: u8) -> Contig {
+impl<I> Contig<I>
+where
+    I: Integer + Copy + One + FromPrimitive + ToPrimitive + SubAssign,
+{
+    fn new(i: I, item: u8) -> Contig<I> {
         Contig {
             origin: i,
             items: VecDeque::from(vec![item]),
         }
     }
 
-    fn contains(&self, i: i32) -> bool {
-        i >= self.origin && i < self.origin + self.items.len() as i32
+    fn contains(&self, i: I) -> bool {
+        i >= self.origin && i < self.origin + I::from_usize(self.items.len()).unwrap()
     }
 
-    fn adjoins_left(&self, i: i32) -> bool {
-        i == self.origin - 1
+    fn adjoins_left(&self, i: I) -> bool {
+        i == self.origin - I::one()
     }
 
-    fn adjoins_right(&self, i: i32) -> bool {
-        i == self.origin + self.items.len() as i32
+    fn adjoins_right(&self, i: I) -> bool {
+        i == self.origin + I::from_usize(self.items.len()).unwrap()
     }
 
     // TODO implement via Index and IndexMut traits
-    fn set(&mut self, i: i32, item: u8) {
+    fn set(&mut self, i: I, item: u8) {
         assert!(self.contains(i));
-        self.items[(i - self.origin) as usize] = item;
+        self.items[I::to_usize(&(i - self.origin)).unwrap()] = item;
     }
 
     fn push_front(&mut self, item: u8) {
         self.items.push_front(item);
-        self.origin -= 1;
+        self.origin -= I::one();
     }
 
     fn push_back(&mut self, item: u8) {
         self.items.push_back(item);
     }
 
-    fn append(&mut self, other: &mut Contig) {
+    fn append(&mut self, other: &mut Contig<I>) {
         self.items.append(&mut other.items);
     }
 }
 
-impl Ord2<i32> for Contig {
-    fn cmp(&self, i: &i32) -> Ordering {
+impl<I> Ord2<I> for Contig<I>
+where
+    I: Integer + Copy + FromPrimitive,
+{
+    fn cmp(&self, i: &I) -> Ordering {
         if *i < self.origin {
             Ordering::Greater
-        } else if *i < self.origin + self.items.len() as i32 {
+        } else if *i < self.origin + I::from_usize(self.items.len()).unwrap() {
             Ordering::Equal
         } else {
             Ordering::Less
@@ -73,7 +87,7 @@ impl Ord2<i32> for Contig {
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
 struct OrderedContigs {
-    contigs: VecDeque<Contig>,
+    contigs: VecDeque<Contig<i32>>, // TODO make generic
 }
 
 impl OrderedContigs {
