@@ -2,11 +2,12 @@
 #![allow(dead_code)]
 
 use num::FromPrimitive;
-use num::Integer;
 use num::One;
 use num::ToPrimitive;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
+use std::ops::Add;
+use std::ops::Sub;
 use std::ops::SubAssign;
 
 /// a trait like Ord<RHS>
@@ -28,7 +29,14 @@ where
 
 impl<I> Contig<I>
 where
-    I: Integer + Copy + One + FromPrimitive + ToPrimitive + SubAssign,
+    I: Copy
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = I>
+        + Sub<Output = I>
+        + PartialOrd
+        + SubAssign,
 {
     fn new(i: I, item: u8) -> Contig<I> {
         Contig {
@@ -71,7 +79,7 @@ where
 
 impl<I> Ord2<I> for Contig<I>
 where
-    I: Integer + Copy + FromPrimitive,
+    I: Copy + FromPrimitive + Add<Output = I> + PartialOrd,
 {
     fn cmp(&self, i: &I) -> Ordering {
         if *i < self.origin {
