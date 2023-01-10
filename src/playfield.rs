@@ -10,59 +10,59 @@ trait Ord2<RHS> {
     fn cmp(&self, other: &RHS) -> Ordering;
 }
 
-/// a horizontal block of contiguous cells
+/// a block of contiguous items
 #[derive(Debug, Eq, PartialEq)]
-struct Span {
-    /// position of leftmost cell, in cell units
-    left: i32,
-    cells: VecDeque<u8>,
+struct Contig {
+    /// position of leftmost item
+    origin: i32,
+    items: VecDeque<u8>,
 }
 
-impl Span {
-    fn new(i_cell: i32, cell: u8) -> Span {
-        Span {
-            left: i_cell,
-            cells: VecDeque::from(vec![cell]),
+impl Contig {
+    fn new(i: i32, item: u8) -> Contig {
+        Contig {
+            origin: i,
+            items: VecDeque::from(vec![item]),
         }
     }
 
-    fn contains(&self, i_cell: i32) -> bool {
-        i_cell >= self.left && i_cell < self.left + self.cells.len() as i32
+    fn contains(&self, i: i32) -> bool {
+        i >= self.origin && i < self.origin + self.items.len() as i32
     }
 
-    fn adjoins_left(&self, i_cell: i32) -> bool {
-        i_cell == self.left - 1
+    fn adjoins_left(&self, i: i32) -> bool {
+        i == self.origin - 1
     }
 
-    fn adjoins_right(&self, i_cell: i32) -> bool {
-        i_cell == self.left + self.cells.len() as i32
+    fn adjoins_right(&self, i: i32) -> bool {
+        i == self.origin + self.items.len() as i32
     }
 
     // TODO implement via Index and IndexMut traits
-    fn set(&mut self, i_cell: i32, cell: u8) {
-        assert!(self.contains(i_cell));
-        self.cells[(i_cell - self.left) as usize] = cell;
+    fn set(&mut self, i: i32, item: u8) {
+        assert!(self.contains(i));
+        self.items[(i - self.origin) as usize] = item;
     }
 
-    fn push_front(&mut self, cell: u8) {
-        self.cells.push_front(cell);
-        self.left -= 1;
+    fn push_front(&mut self, item: u8) {
+        self.items.push_front(item);
+        self.origin -= 1;
     }
 
-    fn push_back(&mut self, cell: u8) {
-        self.cells.push_back(cell);
+    fn push_back(&mut self, item: u8) {
+        self.items.push_back(item);
     }
 
-    fn append(&mut self, other: &mut Span) {
-        self.cells.append(&mut other.cells);
+    fn append(&mut self, other: &mut Contig) {
+        self.items.append(&mut other.items);
     }
 }
 
-impl Ord2<i32> for Span {
-    fn cmp(&self, i_cell: &i32) -> Ordering {
-        if *i_cell < self.left {
+impl Ord2<i32> for Contig {
+    fn cmp(&self, i: &i32) -> Ordering {
+        if *i < self.origin {
             Ordering::Greater
-        } else if *i_cell < self.left + self.cells.len() as i32 {
+        } else if *i < self.origin + self.items.len() as i32 {
             Ordering::Equal
         } else {
             Ordering::Less
@@ -70,63 +70,63 @@ impl Ord2<i32> for Span {
     }
 }
 
-/// an ordered list of spans, ordered by `left`, and coelesced opportunistically
+/// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
-struct Row {
-    spans: VecDeque<Span>,
+struct OrderedContigs {
+    contigs: VecDeque<Contig>,
 }
 
-impl Row {
-    fn new() -> Row {
-        Row {
-            spans: VecDeque::new(),
+impl OrderedContigs {
+    fn new() -> OrderedContigs {
+        OrderedContigs {
+            contigs: VecDeque::new(),
         }
     }
 
-    fn set(&mut self, i_cell: i32, cell: u8) {
-        match self.spans.binary_search_by(|span| span.cmp(&i_cell)) {
-            Ok(i_span) => {
-                self.spans[i_span].set(i_cell, cell);
+    fn set(&mut self, i: i32, item: u8) {
+        match self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            Ok(i_c) => {
+                self.contigs[i_c].set(i, item);
             }
-            Err(i_span) => {
-                if i_span < self.spans.len() {
-                    let span_i = &mut self.spans[i_span];
-                    if span_i.adjoins_left(i_cell) {
-                        span_i.push_front(cell);
+            Err(i_c) => {
+                if i_c < self.contigs.len() {
+                    let c_i = &mut self.contigs[i_c];
+                    if c_i.adjoins_left(i) {
+                        c_i.push_front(item);
 
-                        if i_span > 0 && self.spans[i_span - 1].adjoins_right(i_cell) {
-                            self.coelesce_left(i_span);
+                        if i_c > 0 && self.contigs[i_c - 1].adjoins_right(i) {
+                            self.coelesce_left(i_c);
                         }
-                    } else if i_span > 0 {
-                        let span_left = &mut self.spans[i_span - 1];
-                        if span_left.adjoins_right(i_cell) {
-                            span_left.push_back(cell);
+                    } else if i_c > 0 {
+                        let c_left = &mut self.contigs[i_c - 1];
+                        if c_left.adjoins_right(i) {
+                            c_left.push_back(item);
                         } else {
-                            self.spans.insert(i_span, Span::new(i_cell, cell));
+                            self.contigs.insert(i_c, Contig::new(i, item));
                         }
                     } else {
-                        self.spans.push_front(Span::new(i_cell, cell));
+                        self.contigs.push_front(Contig::new(i, item));
                     }
                 } else {
-                    match self.spans.back_mut() {
-                        Some(span_left) => {
+                    match self.contigs.back_mut() {
+                        Some(c_left) => {
                             // TODO extract out common code with above
-                            if span_left.adjoins_right(i_cell) {
-                                span_left.push_back(cell);
+                            if c_left.adjoins_right(i) {
+                                c_left.push_back(item);
                             } else {
-                                self.spans.insert(i_span, Span::new(i_cell, cell));
+                                self.contigs.insert(i_c, Contig::new(i, item));
                             }
                         }
-                        None => self.spans.push_back(Span::new(i_cell, cell)),
+                        None => self.contigs.push_back(Contig::new(i, item)),
                     }
                 }
             }
         }
     }
 
-    fn coelesce_left(&mut self, i_span: usize) {
-        if let Some(mut removed_span) = self.spans.remove(i_span) {
-            self.spans[i_span - 1].append(&mut removed_span);
+    fn coelesce_left(&mut self, i_c: usize) {
+        if let Some(mut removed_c) = self.contigs.remove(i_c) {
+            self.contigs[i_c - 1].append(&mut removed_c);
         }
     }
 }
@@ -135,7 +135,7 @@ impl Row {
 #[derive(Debug)]
 struct Drop {
     bottom: i32,
-    rows: VecDeque<Row>,
+    rows: VecDeque<OrderedContigs>,
 }
 
 /// ordered list of drops, ordered by `bottom`, and coelesced opportunistically

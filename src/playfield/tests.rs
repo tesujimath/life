@@ -4,63 +4,63 @@ use super::*;
 #[test]
 fn test_span_ord2() {
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![])
         }
         .cmp(&0),
         Ordering::Greater
     );
 
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![])
         }
         .cmp(&1),
         Ordering::Less
     );
 
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![])
         }
         .cmp(&2),
         Ordering::Less
     );
 
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![7u8])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![7u8])
         }
         .cmp(&0),
         Ordering::Greater
     );
 
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![7u8])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![7u8])
         }
         .cmp(&1),
         Ordering::Equal
     );
 
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![7u8])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![7u8])
         }
         .cmp(&2),
         Ordering::Less
     );
 
     assert_eq!(
-        Span {
-            left: 1,
-            cells: VecDeque::from(vec![5u8, 7u8])
+        Contig {
+            origin: 1,
+            items: VecDeque::from(vec![5u8, 7u8])
         }
         .cmp(&2),
         Ordering::Equal
@@ -70,13 +70,13 @@ fn test_span_ord2() {
 #[test]
 fn test_spans_binary_search() {
     let spans = VecDeque::from(vec![
-        Span {
-            left: 0,
-            cells: VecDeque::from(vec![5u8, 7u8]),
+        Contig {
+            origin: 0,
+            items: VecDeque::from(vec![5u8, 7u8]),
         },
-        Span {
-            left: 3,
-            cells: VecDeque::from(vec![3u8]),
+        Contig {
+            origin: 3,
+            items: VecDeque::from(vec![3u8]),
         },
     ]);
 
@@ -89,15 +89,15 @@ fn test_spans_binary_search() {
 
 #[test]
 fn test_row_set() {
-    let row = &mut Row::new();
+    let row = &mut OrderedContigs::new();
 
     row.set(10, 10u8);
     assert_eq!(
         *row,
-        Row {
-            spans: VecDeque::from(vec![Span {
-                left: 10,
-                cells: VecDeque::from(vec![10u8])
+        OrderedContigs {
+            contigs: VecDeque::from(vec![Contig {
+                origin: 10,
+                items: VecDeque::from(vec![10u8])
             },])
         }
     );
@@ -105,10 +105,10 @@ fn test_row_set() {
     row.set(11, 11u8);
     assert_eq!(
         *row,
-        Row {
-            spans: VecDeque::from(vec![Span {
-                left: 10,
-                cells: VecDeque::from(vec![10u8, 11u8])
+        OrderedContigs {
+            contigs: VecDeque::from(vec![Contig {
+                origin: 10,
+                items: VecDeque::from(vec![10u8, 11u8])
             },])
         }
     );
@@ -116,10 +116,10 @@ fn test_row_set() {
     row.set(9, 9u8);
     assert_eq!(
         *row,
-        Row {
-            spans: VecDeque::from(vec![Span {
-                left: 9,
-                cells: VecDeque::from(vec![9u8, 10u8, 11u8])
+        OrderedContigs {
+            contigs: VecDeque::from(vec![Contig {
+                origin: 9,
+                items: VecDeque::from(vec![9u8, 10u8, 11u8])
             }])
         }
     );
@@ -127,15 +127,15 @@ fn test_row_set() {
     row.set(7, 7u8);
     assert_eq!(
         *row,
-        Row {
-            spans: VecDeque::from(vec![
-                Span {
-                    left: 7,
-                    cells: VecDeque::from(vec![7u8])
+        OrderedContigs {
+            contigs: VecDeque::from(vec![
+                Contig {
+                    origin: 7,
+                    items: VecDeque::from(vec![7u8])
                 },
-                Span {
-                    left: 9,
-                    cells: VecDeque::from(vec![9u8, 10u8, 11u8])
+                Contig {
+                    origin: 9,
+                    items: VecDeque::from(vec![9u8, 10u8, 11u8])
                 }
             ])
         }
@@ -144,10 +144,10 @@ fn test_row_set() {
     row.set(8, 8u8);
     assert_eq!(
         *row,
-        Row {
-            spans: VecDeque::from(vec![Span {
-                left: 7,
-                cells: VecDeque::from(vec![7u8, 8u8, 9u8, 10u8, 11u8])
+        OrderedContigs {
+            contigs: VecDeque::from(vec![Contig {
+                origin: 7,
+                items: VecDeque::from(vec![7u8, 8u8, 9u8, 10u8, 11u8])
             }])
         }
     );
