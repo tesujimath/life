@@ -6,7 +6,7 @@ fn test_span_ord2() {
     assert_eq!(
         Contig {
             origin: 1,
-            items: VecDeque::from(vec![])
+            items: VecDeque::<u8>::new()
         }
         .cmp(&0),
         Ordering::Greater
@@ -15,7 +15,7 @@ fn test_span_ord2() {
     assert_eq!(
         Contig {
             origin: 1,
-            items: VecDeque::from(vec![])
+            items: VecDeque::<u8>::new()
         }
         .cmp(&1),
         Ordering::Less
@@ -24,7 +24,7 @@ fn test_span_ord2() {
     assert_eq!(
         Contig {
             origin: 1,
-            items: VecDeque::from(vec![])
+            items: VecDeque::<u8>::new()
         }
         .cmp(&2),
         Ordering::Less

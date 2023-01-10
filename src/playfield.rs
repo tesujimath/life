@@ -18,16 +18,17 @@ trait Ord2<RHS> {
 
 /// a block of contiguous items
 #[derive(Debug, Eq, PartialEq)]
-struct Contig<I>
+struct Contig<I, T>
 where
     I: Copy,
+    T: Copy,
 {
     /// position of leftmost item
     origin: I,
-    items: VecDeque<u8>,
+    items: VecDeque<T>,
 }
 
-impl<I> Contig<I>
+impl<I, T> Contig<I, T>
 where
     I: Copy
         + One
@@ -37,8 +38,9 @@ where
         + Sub<Output = I>
         + PartialOrd
         + SubAssign,
+    T: Copy,
 {
-    fn new(i: I, item: u8) -> Contig<I> {
+    fn new(i: I, item: T) -> Contig<I, T> {
         Contig {
             origin: i,
             items: VecDeque::from(vec![item]),
@@ -58,28 +60,29 @@ where
     }
 
     // TODO implement via Index and IndexMut traits
-    fn set(&mut self, i: I, item: u8) {
+    fn set(&mut self, i: I, item: T) {
         assert!(self.contains(i));
         self.items[I::to_usize(&(i - self.origin)).unwrap()] = item;
     }
 
-    fn push_front(&mut self, item: u8) {
+    fn push_front(&mut self, item: T) {
         self.items.push_front(item);
         self.origin -= I::one();
     }
 
-    fn push_back(&mut self, item: u8) {
+    fn push_back(&mut self, item: T) {
         self.items.push_back(item);
     }
 
-    fn append(&mut self, other: &mut Contig<I>) {
+    fn append(&mut self, other: &mut Contig<I, T>) {
         self.items.append(&mut other.items);
     }
 }
 
-impl<I> Ord2<I> for Contig<I>
+impl<I, T> Ord2<I> for Contig<I, T>
 where
     I: Copy + FromPrimitive + Add<Output = I> + PartialOrd,
+    T: Copy,
 {
     fn cmp(&self, i: &I) -> Ordering {
         if *i < self.origin {
@@ -94,14 +97,15 @@ where
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
-struct OrderedContigs<I>
+struct OrderedContigs<I, T>
 where
     I: Copy,
+    T: Copy,
 {
-    contigs: VecDeque<Contig<I>>, // TODO make generic
+    contigs: VecDeque<Contig<I, T>>,
 }
 
-impl<I> OrderedContigs<I>
+impl<I, T> OrderedContigs<I, T>
 where
     I: Copy
         + One
@@ -111,14 +115,15 @@ where
         + Sub<Output = I>
         + PartialOrd
         + SubAssign,
+    T: Copy,
 {
-    fn new() -> OrderedContigs<I> {
+    fn new() -> OrderedContigs<I, T> {
         OrderedContigs {
             contigs: VecDeque::new(),
         }
     }
 
-    fn set(&mut self, i: I, item: u8) {
+    fn set(&mut self, i: I, item: T) {
         match self.contigs.binary_search_by(|c| c.cmp(&i)) {
             Ok(i_c) => {
                 self.contigs[i_c].set(i, item);
@@ -170,7 +175,7 @@ where
 #[derive(Debug)]
 struct Drop {
     bottom: i32,
-    rows: VecDeque<OrderedContigs<i32>>,
+    rows: VecDeque<OrderedContigs<i32, u8>>,
 }
 
 /// ordered list of drops, ordered by `bottom`, and coelesced opportunistically
