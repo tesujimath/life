@@ -49,6 +49,14 @@ where
         }
     }
 
+    fn get(&self, i: Idx) -> Option<&T> {
+        if i >= self.origin {
+            self.items.get(Idx::to_usize(&(i - self.origin)).unwrap())
+        } else {
+            None
+        }
+    }
+
     fn adjoins_left(&self, i: Idx) -> bool {
         i == self.origin - Idx::one()
     }
@@ -151,7 +159,7 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + SubAssign,
-    T: Copy,
+    T: Copy + Default,
 {
     fn new() -> OrderedContigs<Idx, T> {
         OrderedContigs {
@@ -187,6 +195,23 @@ where
                     (_, _) => Insert(i_c),
                 }
             }
+        }
+    }
+
+    // return the indexed item
+    fn get(&self, i: Idx) -> Option<&T> {
+        if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            self.contigs[i_c].get(i)
+        } else {
+            None
+        }
+    }
+
+    // return the indexed item or default if not present
+    fn get_or_default(&self, i: Idx) -> T {
+        match self.get(i) {
+            Some(item) => *item,
+            None => T::default(),
         }
     }
 
