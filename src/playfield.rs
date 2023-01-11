@@ -133,6 +133,14 @@ where
     contigs: VecDeque<Contig<Idx, T>>,
 }
 
+enum OrderedContigsUpdate {
+    Set(usize),
+    PushFront(usize),
+    PushFrontAndCoelesce(usize),
+    PushBack(usize),
+    Insert(usize),
+}
+
 impl<Idx, T> OrderedContigs<Idx, T>
 where
     Idx: Copy
@@ -151,53 +159,53 @@ where
         }
     }
 
-    fn get_mut_contig_left(&mut self, i_c: usize) -> Option<&mut Contig<Idx, T>> {
-        if i_c > 0 {
-            self.contigs.get_mut(i_c - 1)
-        } else {
-            None
+    fn determine_update(&self, i: Idx) -> OrderedContigsUpdate {
+        use OrderedContigsUpdate::*;
+
+        match self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            Ok(i_c) => Set(i_c),
+            Err(i_c) => {
+                let c_left_o = if i_c > 0 {
+                    self.contigs.get(i_c - 1)
+                } else {
+                    self.contigs.get(i_c)
+                };
+
+                match (c_left_o, self.contigs.get(i_c)) {
+                    (Some(c_left), Some(c_i)) if c_i.adjoins_left(i) => {
+                        if c_left.adjoins_right(i) {
+                            PushFrontAndCoelesce(i_c)
+                        } else {
+                            PushFront(i_c)
+                        }
+                    }
+
+                    (None, Some(c_i)) if c_i.adjoins_left(i) => PushFront(i_c),
+
+                    (Some(c_left), _) if c_left.adjoins_right(i) => PushBack(i_c - 1),
+
+                    (_, _) => Insert(i_c),
+                }
+            }
         }
     }
 
     fn set(&mut self, i: Idx, item: T) {
-        match self.contigs.binary_search_by(|c| c.cmp(&i)) {
-            Ok(i_c) => {
-                self.contigs[i_c][i] = item;
+        use OrderedContigsUpdate::*;
+
+        match self.determine_update(i) {
+            Set(i_c) => self.contigs[i_c][i] = item,
+
+            PushFront(i_c) => self.contigs[i_c].push_front(item),
+
+            PushFrontAndCoelesce(i_c) => {
+                self.contigs[i_c].push_front(item);
+                self.coelesce_left(i_c);
             }
-            Err(i_c) => {
-                match self.contigs.get_mut(i_c) {
-                    Some(c_i) if c_i.adjoins_left(i) => {
-                        c_i.push_front(item);
 
-                        if i_c > 0 && self.contigs[i_c - 1].adjoins_right(i) {
-                            self.coelesce_left(i_c);
-                        }
-                    }
+            PushBack(i_c) => self.contigs[i_c].push_back(item),
 
-                    Some(_) => match self.get_mut_contig_left(i_c) {
-                        Some(c_left) if c_left.adjoins_right(i) => {
-                            c_left.push_back(item);
-                        }
-                        _ => {
-                            self.contigs.insert(i_c, Contig::new(i, item));
-                        }
-                    },
-
-                    None => {
-                        match self.contigs.back_mut() {
-                            Some(c_left) => {
-                                // TODO extract out common code with above
-                                if c_left.adjoins_right(i) {
-                                    c_left.push_back(item);
-                                } else {
-                                    self.contigs.insert(i_c, Contig::new(i, item));
-                                }
-                            }
-                            None => self.contigs.push_back(Contig::new(i, item)),
-                        }
-                    }
-                }
-            }
+            Insert(i_c) => self.contigs.insert(i_c, Contig::new(i, item)),
         }
     }
 
