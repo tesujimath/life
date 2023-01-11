@@ -23,7 +23,6 @@ trait Ord2<RHS> {
 struct Contig<Idx, T>
 where
     Idx: Copy,
-    T: Copy,
 {
     /// position of leftmost item
     origin: Idx,
@@ -40,7 +39,6 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + SubAssign,
-    T: Copy,
 {
     fn new(i: Idx, item: T) -> Contig<Idx, T> {
         Contig {
@@ -89,7 +87,6 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + SubAssign,
-    T: Copy,
 {
     type Output = T;
 
@@ -108,7 +105,6 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + SubAssign,
-    T: Copy,
 {
     fn index_mut(&mut self, i: Idx) -> &mut Self::Output {
         &mut self.items[Idx::to_usize(&(i - self.origin)).unwrap()]
@@ -118,7 +114,6 @@ where
 impl<Idx, T> Ord2<Idx> for Contig<Idx, T>
 where
     Idx: Copy + FromPrimitive + Add<Output = Idx> + PartialOrd,
-    T: Copy,
 {
     fn cmp(&self, i: &Idx) -> Ordering {
         if *i < self.origin {
@@ -136,7 +131,6 @@ where
 struct OrderedContigs<Idx, T>
 where
     Idx: Copy,
-    T: Copy,
 {
     contigs: VecDeque<Contig<Idx, T>>,
 }
@@ -159,7 +153,6 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + SubAssign,
-    T: Copy + Default,
 {
     fn new() -> OrderedContigs<Idx, T> {
         OrderedContigs {
@@ -204,14 +197,6 @@ where
             self.contigs[i_c].get(i)
         } else {
             None
-        }
-    }
-
-    // return the indexed item or default if not present
-    fn get_or_default(&self, i: Idx) -> T {
-        match self.get(i) {
-            Some(item) => *item,
-            None => T::default(),
         }
     }
 

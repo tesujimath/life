@@ -154,17 +154,17 @@ fn test_ordered_contigs_set() {
 }
 
 #[test]
-fn test_ordered_contigs_get_or_default() {
+fn test_ordered_contigs_get() {
     let oc = &mut OrderedContigs::new();
 
     oc.set(10, 10u8);
     oc.set(11, 11u8);
     oc.set(13, 13u8);
 
-    assert_eq!(oc.get_or_default(9), 0u8);
-    assert_eq!(oc.get_or_default(10), 10u8);
-    assert_eq!(oc.get_or_default(11), 11u8);
-    assert_eq!(oc.get_or_default(12), 0u8);
-    assert_eq!(oc.get_or_default(13), 13u8);
-    assert_eq!(oc.get_or_default(14), 0u8);
+    assert_eq!(oc.get(9), None);
+    assert_eq!(oc.get(10), Some(&10u8));
+    assert_eq!(oc.get(11), Some(&11u8));
+    assert_eq!(oc.get(12), None);
+    assert_eq!(oc.get(13), Some(&13u8));
+    assert_eq!(oc.get(14), None);
 }
