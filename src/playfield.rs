@@ -47,9 +47,20 @@ where
         }
     }
 
+    // provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
         if i >= self.origin {
             self.items.get(Idx::to_usize(&(i - self.origin)).unwrap())
+        } else {
+            None
+        }
+    }
+
+    // provide a mutable reference to the indexed item
+    fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
+        if i >= self.origin {
+            self.items
+                .get_mut(Idx::to_usize(&(i - self.origin)).unwrap())
         } else {
             None
         }
@@ -191,10 +202,19 @@ where
         }
     }
 
-    // return the indexed item
+    // provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
         if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
             self.contigs[i_c].get(i)
+        } else {
+            None
+        }
+    }
+
+    // provide a mutable reference to the indexed item
+    fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
+        if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            self.contigs[i_c].get_mut(i)
         } else {
             None
         }
@@ -226,14 +246,43 @@ where
     }
 }
 
-/// a vertical block of contiguous rows
-#[derive(Debug)]
-struct Drop {
-    bottom: i32,
-    rows: VecDeque<OrderedContigs<i32, u8>>,
-}
+// 2D array of Contigs, organised in rows
+struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
+where
+    Idx: Copy;
 
-/// ordered list of drops, ordered by `bottom`, and coelesced opportunistically
-type Playfield = VecDeque<Drop>;
+impl<Idx, T> CartesianContigs<Idx, T>
+where
+    Idx: Copy
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + SubAssign,
+{
+    fn new() -> CartesianContigs<Idx, T> {
+        CartesianContigs(OrderedContigs::new())
+    }
+
+    fn get(&self, x: Idx, y: Idx) -> Option<&T> {
+        self.0.get(y).and_then(|c| c.get(x))
+    }
+
+    fn set(&mut self, x: Idx, y: Idx, item: T) {
+        match self.0.get_mut(y) {
+            Some(c) => {
+                c.set(x, item);
+            }
+
+            None => {
+                let mut row = OrderedContigs::new();
+                row.set(x, item);
+                self.0.set(y, row);
+            }
+        }
+    }
+}
 
 mod tests;

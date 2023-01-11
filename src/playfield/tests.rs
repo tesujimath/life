@@ -168,3 +168,15 @@ fn test_ordered_contigs_get() {
     assert_eq!(oc.get(13), Some(&13u8));
     assert_eq!(oc.get(14), None);
 }
+
+#[test]
+fn test_cartesian_contigs_set() {
+    let mut c = CartesianContigs::new();
+    c.set(1, 1, 11u8);
+    c.set(4, 2, 42u8);
+
+    assert_eq!(c.get(1, 1), Some(&11u8));
+    assert_eq!(c.get(1, 2), None);
+    assert_eq!(c.get(4, 1), None);
+    assert_eq!(c.get(4, 2), Some(&42u8));
+}
