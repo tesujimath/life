@@ -86,6 +86,15 @@ where
     fn append(&mut self, other: &mut Contig<Idx, T>) {
         self.items.append(&mut other.items);
     }
+
+    fn enumerate_from(&self, i: Idx) -> impl Iterator<Item = (Idx, &T)> {
+        let enumerator = self.items.iter().enumerate().skip(if i > self.origin {
+            Idx::to_usize(&(i - self.origin)).unwrap()
+        } else {
+            0
+        });
+        enumerator.map(|(u, item)| (self.origin + Idx::from_usize(u).unwrap(), item))
+    }
 }
 
 impl<Idx, T> Index<Idx> for Contig<Idx, T>

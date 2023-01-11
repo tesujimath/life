@@ -2,6 +2,29 @@
 use super::*;
 
 #[test]
+fn test_contig_enumerate_from() {
+    fn deref_item<Idx, T: Copy>(i: Idx, item: &T) -> (Idx, T) {
+        (i, *item)
+    }
+
+    fn vec_from(c: &Contig<i32, u8>, i: i32) -> Vec<(i32, u8)> {
+        c.enumerate_from(i)
+            .map(|(i, item)| (i, *item))
+            .collect::<Vec<(i32, u8)>>()
+    }
+
+    let c = Contig {
+        origin: 10,
+        items: VecDeque::from(vec![1u8, 2u8, 3u8]),
+    };
+
+    assert_eq!(vec_from(&c, -3), vec![(10, 1u8), (11, 2u8), (12, 3u8)]);
+    assert_eq!(vec_from(&c, 10), vec![(10, 1u8), (11, 2u8), (12, 3u8)]);
+    assert_eq!(vec_from(&c, 11), vec![(11, 2u8), (12, 3u8)]);
+    assert_eq!(vec_from(&c, 20), vec![]);
+}
+
+#[test]
 fn test_contig_ord2() {
     assert_eq!(
         Contig {
