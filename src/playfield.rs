@@ -7,6 +7,7 @@ use num::ToPrimitive;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::ops::Add;
+use std::ops::AddAssign;
 use std::ops::Index;
 use std::ops::IndexMut;
 use std::ops::Sub;
@@ -45,6 +46,11 @@ where
             origin: i,
             items: VecDeque::from(vec![item]),
         }
+    }
+
+    /// return whether `i` is contained
+    fn contains(&self, i: Idx) -> bool {
+        i >= self.origin && i < self.origin + Idx::from_usize(self.items.len()).unwrap()
     }
 
     /// provide a reference to the indexed item
@@ -87,18 +93,23 @@ where
         self.items.append(&mut other.items);
     }
 
-    // TODO maybe remove this?
-    fn enumerate_from(&self, i: Idx) -> impl Iterator<Item = (Idx, &T)> {
-        let enumerator = self.items.iter().enumerate().skip(if i > self.origin {
-            Idx::to_usize(&(i - self.origin)).unwrap()
+    /// get the neighbourhood for `i`, which must be in range
+    fn get_neighbourhood(&self, i: Idx) -> Neighbourhood<Idx, T> {
+        let u = Idx::to_usize(&(i - self.origin)).unwrap();
+        let left = if u > 0 {
+            Some(&self.items[u - 1])
         } else {
-            0
-        });
-        enumerator.map(|(u, item)| (self.origin + Idx::from_usize(u).unwrap(), item))
-    }
+            None
+        };
+        let this = &self.items[u];
+        let right = self.items.get(u + 1);
 
-    fn neighbourhood_iter(&self, from: Idx) -> ContigNeighbourhoodEnumerator<Idx, T> {
-        ContigNeighbourhoodEnumerator::new(self, from)
+        Neighbourhood {
+            i,
+            left,
+            this,
+            right,
+        }
     }
 }
 
@@ -156,60 +167,6 @@ struct Neighbourhood<'a, Idx, T> {
     left: Option<&'a T>,
     this: &'a T,
     right: Option<&'a T>,
-}
-
-struct ContigNeighbourhoodEnumerator<'a, Idx, T>
-where
-    Idx: Copy,
-{
-    c: &'a Contig<Idx, T>,
-    next_u: usize,
-}
-
-impl<'a, Idx, T> ContigNeighbourhoodEnumerator<'a, Idx, T>
-where
-    Idx: Copy + FromPrimitive + ToPrimitive + Add<Output = Idx> + Sub<Output = Idx> + PartialOrd,
-{
-    fn new(c: &'a Contig<Idx, T>, from: Idx) -> ContigNeighbourhoodEnumerator<'a, Idx, T> {
-        ContigNeighbourhoodEnumerator {
-            c,
-            next_u: if from < c.origin {
-                0
-            } else {
-                Idx::to_usize(&(from - c.origin)).unwrap()
-            },
-        }
-    }
-}
-
-impl<'a, Idx, T> Iterator for ContigNeighbourhoodEnumerator<'a, Idx, T>
-where
-    Idx: Copy + FromPrimitive + ToPrimitive + Add<Output = Idx> + Sub<Output = Idx> + PartialOrd,
-{
-    type Item = Neighbourhood<'a, Idx, T>;
-
-    fn next(&mut self) -> Option<Neighbourhood<'a, Idx, T>> {
-        if self.next_u < self.c.items.len() {
-            let i = self.c.origin + Idx::from_usize(self.next_u).unwrap();
-            let left = if self.next_u > 0 {
-                Some(&self.c.items[self.next_u - 1])
-            } else {
-                None
-            };
-            let this = &self.c.items[self.next_u];
-            let right = self.c.items.get(self.next_u + 1);
-            self.next_u += 1;
-
-            Some(Neighbourhood {
-                i,
-                left,
-                this,
-                right,
-            })
-        } else {
-            None
-        }
-    }
 }
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
@@ -321,20 +278,18 @@ where
     }
 
     fn neighbourhood_enumerator(&self, from: Idx) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
-        let next_u = match self.contigs.binary_search_by(|c| c.cmp(&from)) {
-            Ok(u) => u,
-            Err(u) => u,
+        let (next_u, next_i) = match self.contigs.binary_search_by(|c| c.cmp(&from)) {
+            Ok(u) => (u, from),
+            Err(u) => {
+                if u < self.contigs.len() {
+                    (u, self.contigs[u].origin)
+                } else {
+                    (u, from)
+                }
+            }
         };
 
-        OrderedContigsNeighbourhoodEnumerator::new(&self, next_u, from)
-    }
-
-    fn neighbourhood_enumerator_for(
-        &self,
-        u: usize,
-        from: Idx,
-    ) -> Option<ContigNeighbourhoodEnumerator<Idx, T>> {
-        self.contigs.get(u).map(|c| c.neighbourhood_iter(from))
+        OrderedContigsNeighbourhoodEnumerator::new(self, next_u, next_i)
     }
 }
 
@@ -343,9 +298,8 @@ where
     Idx: Copy,
 {
     oc: &'a OrderedContigs<Idx, T>,
-    next_u: usize,
+    u_c: usize,
     next_i: Idx,
-    enumerator: Option<ContigNeighbourhoodEnumerator<'a, Idx, T>>,
 }
 
 impl<'a, Idx, T> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
@@ -361,15 +315,10 @@ where
 {
     fn new(
         oc: &'a OrderedContigs<Idx, T>,
-        next_u: usize,
+        u_c: usize,
         next_i: Idx,
     ) -> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T> {
-        OrderedContigsNeighbourhoodEnumerator {
-            oc,
-            next_u,
-            next_i,
-            enumerator: oc.contigs.get(next_u).map(|c| c.neighbourhood_iter(next_i)),
-        }
+        OrderedContigsNeighbourhoodEnumerator { oc, u_c, next_i }
     }
 }
 
@@ -382,25 +331,26 @@ where
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
-        + SubAssign,
+        + SubAssign
+        + AddAssign,
 {
     type Item = Neighbourhood<'a, Idx, T>;
 
     fn next(&mut self) -> Option<Neighbourhood<'a, Idx, T>> {
-        match &mut self.enumerator {
-            Some(e) => match e.next() {
-                Some(nbh) => Some(nbh),
-                None => {
-                    self.next_u += 1;
-                    self.enumerator = self
-                        .oc
-                        .neighbourhood_enumerator_for(self.next_u, self.next_i);
+        if self.u_c < self.oc.contigs.len() {
+            let nbh = self.oc.contigs[self.u_c].get_neighbourhood(self.next_i);
 
-                    self.enumerator.as_mut().and_then(|e| e.next())
+            // advance
+            self.next_i += Idx::one();
+            if !self.oc.contigs[self.u_c].contains(self.next_i) {
+                self.u_c += 1;
+                if self.u_c < self.oc.contigs.len() {
+                    self.next_i = self.oc.contigs[self.u_c].origin;
                 }
-            },
-
-            None => None,
+            }
+            Some(nbh)
+        } else {
+            None
         }
     }
 }

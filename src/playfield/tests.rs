@@ -2,64 +2,6 @@
 use super::*;
 
 #[test]
-fn test_contig_enumerate_from() {
-    fn vec_from(c: &Contig<i32, u8>, i: i32) -> Vec<(i32, u8)> {
-        c.enumerate_from(i)
-            .map(|(i, item)| (i, *item))
-            .collect::<Vec<(i32, u8)>>()
-    }
-
-    let c = Contig {
-        origin: 10,
-        items: VecDeque::from(vec![1u8, 2u8, 3u8]),
-    };
-
-    assert_eq!(vec_from(&c, -3), vec![(10, 1u8), (11, 2u8), (12, 3u8)]);
-    assert_eq!(vec_from(&c, 10), vec![(10, 1u8), (11, 2u8), (12, 3u8)]);
-    assert_eq!(vec_from(&c, 11), vec![(11, 2u8), (12, 3u8)]);
-    assert_eq!(vec_from(&c, 20), vec![]);
-}
-
-#[test]
-fn test_contig_neighbourhood_iter() {
-    fn vec_from(c: &Contig<i32, u8>, i: i32) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
-        c.neighbourhood_iter(i)
-            .map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
-            .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
-    }
-
-    let c = Contig {
-        origin: 10,
-        items: VecDeque::from(vec![1u8, 2u8, 3u8]),
-    };
-
-    assert_eq!(
-        vec_from(&c, 0),
-        vec![
-            (10, None, 1u8, Some(2u8)),
-            (11, Some(1u8), 2u8, Some(3u8)),
-            (12, Some(2u8), 3u8, None),
-        ]
-    );
-
-    assert_eq!(
-        vec_from(&c, 9),
-        vec![
-            (10, None, 1u8, Some(2u8)),
-            (11, Some(1u8), 2u8, Some(3u8)),
-            (12, Some(2u8), 3u8, None),
-        ]
-    );
-
-    assert_eq!(
-        vec_from(&c, 11),
-        vec![(11, Some(1u8), 2u8, Some(3u8)), (12, Some(2u8), 3u8, None),]
-    );
-
-    assert_eq!(vec_from(&c, 13), vec![]);
-}
-
-#[test]
 fn test_contig_ord2() {
     assert_eq!(
         Contig {
