@@ -24,7 +24,7 @@ fn test_contig_enumerate_from() {
 fn test_contig_neighbourhood_iter() {
     fn vec_from(c: &Contig<i32, u8>, i: i32) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
         c.neighbourhood_iter(i)
-            .map(|nb| (nb.i, nb.left.copied(), *nb.this, nb.right.copied()))
+            .map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
             .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
     }
 
@@ -230,8 +230,8 @@ fn test_ordered_contigs_get() {
 #[test]
 fn test_ordered_contigs_neighbourhood_iter() {
     fn vec_from(oc: &OrderedContigs<i32, u8>, i: i32) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
-        oc.neighbourhood_iter(i)
-            .map(|nb| (nb.i, nb.left.copied(), *nb.this, nb.right.copied()))
+        oc.neighbourhood_enumerator(i)
+            .map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
             .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
     }
 
@@ -245,8 +245,8 @@ fn test_ordered_contigs_neighbourhood_iter() {
         vec_from(oc, 0),
         vec![
             (10, None, 10u8, Some(11u8)),
-            (11, Some(10u8), 11u8, Some(12u8)),
-            (12, Some(11u8), 12u8, None),
+            (11, Some(10u8), 11u8, None),
+            (13, None, 13u8, None),
         ]
     );
 }

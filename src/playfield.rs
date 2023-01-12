@@ -320,13 +320,21 @@ where
         }
     }
 
-    fn neighbourhood_iter(&self, from: Idx) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+    fn neighbourhood_enumerator(&self, from: Idx) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
         let next_u = match self.contigs.binary_search_by(|c| c.cmp(&from)) {
             Ok(u) => u,
             Err(u) => u,
         };
 
         OrderedContigsNeighbourhoodEnumerator::new(&self, next_u, from)
+    }
+
+    fn neighbourhood_enumerator_for(
+        &self,
+        u: usize,
+        from: Idx,
+    ) -> Option<ContigNeighbourhoodEnumerator<Idx, T>> {
+        self.contigs.get(u).map(|c| c.neighbourhood_iter(from))
     }
 }
 
@@ -367,16 +375,30 @@ where
 
 impl<'a, Idx, T> Iterator for OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
-    Idx: Copy + FromPrimitive + ToPrimitive + Add<Output = Idx> + Sub<Output = Idx> + PartialOrd,
+    Idx: Copy
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + SubAssign,
 {
     type Item = Neighbourhood<'a, Idx, T>;
 
     fn next(&mut self) -> Option<Neighbourhood<'a, Idx, T>> {
         match &mut self.enumerator {
-            Some(e) => {
-                // TODO when e.next() returns None, go on to the next contig
-                e.next()
-            }
+            Some(e) => match e.next() {
+                Some(nbh) => Some(nbh),
+                None => {
+                    self.next_u += 1;
+                    self.enumerator = self
+                        .oc
+                        .neighbourhood_enumerator_for(self.next_u, self.next_i);
+
+                    self.enumerator.as_mut().and_then(|e| e.next())
+                }
+            },
 
             None => None,
         }
