@@ -162,6 +162,7 @@ where
     }
 }
 
+#[derive(PartialEq, Debug)]
 struct Neighbourhood<'a, Idx, T> {
     i: Idx,
     left: Option<&'a T>,
@@ -190,17 +191,30 @@ impl<Idx, T> OrderedContigs<Idx, T>
 where
     Idx: Copy
         + One
+        + Default
         + FromPrimitive
         + ToPrimitive
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
+        + AddAssign
         + SubAssign,
 {
     fn new() -> OrderedContigs<Idx, T> {
         OrderedContigs {
             contigs: VecDeque::new(),
         }
+    }
+
+    fn from<I>(it: I) -> OrderedContigs<Idx, T>
+    where
+        I: IntoIterator<Item = (Idx, T)>,
+    {
+        let oc0 = OrderedContigs::new();
+        it.into_iter().fold(oc0, |mut oc, (i, item)| {
+            oc.set(i, item);
+            oc
+        })
     }
 
     fn determine_update(&self, i: Idx) -> OrderedContigsUpdate {
@@ -277,17 +291,34 @@ where
         }
     }
 
-    fn neighbourhood_enumerator(&self, from: Idx) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
-        let (next_u, next_i) = match self.contigs.binary_search_by(|c| c.cmp(&from)) {
-            Ok(u) => (u, from),
+    fn neighbourhood_enumerator(&self) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+        let next_i = if !self.contigs.is_empty() {
+            self.contigs[0].origin
+        } else {
+            Idx::default()
+        };
+
+        OrderedContigsNeighbourhoodEnumerator::new(self, 0, next_i)
+    }
+
+    fn find(&self, i: Idx) -> (usize, Idx) {
+        match self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            Ok(u) => (u, i),
             Err(u) => {
                 if u < self.contigs.len() {
                     (u, self.contigs[u].origin)
                 } else {
-                    (u, from)
+                    (u, i)
                 }
             }
-        };
+        }
+    }
+
+    fn neighbourhood_enumerator_from(
+        &self,
+        i: Idx,
+    ) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+        let (next_u, next_i) = self.find(i);
 
         OrderedContigsNeighbourhoodEnumerator::new(self, next_u, next_i)
     }
@@ -305,12 +336,14 @@ where
 impl<'a, Idx, T> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
+        + Default
         + One
         + FromPrimitive
         + ToPrimitive
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
+        + AddAssign
         + SubAssign,
 {
     fn new(
@@ -320,34 +353,68 @@ where
     ) -> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T> {
         OrderedContigsNeighbourhoodEnumerator { oc, u_c, next_i }
     }
+
+    /// advance the enumerator
+    fn advance(&mut self) {
+        self.next_i += Idx::one();
+        if !self.oc.contigs[self.u_c].contains(self.next_i) {
+            self.u_c += 1;
+            if self.u_c < self.oc.contigs.len() {
+                self.next_i = self.oc.contigs[self.u_c].origin;
+            }
+        }
+    }
+
+    /// return the neighbourhood for `i` or None,
+    /// positioning the iterator after the returned item, which may be backwards
+    fn get(&mut self, i: Idx) -> Option<Neighbourhood<Idx, T>> {
+        if i < self.next_i {
+            (self.u_c, self.next_i) = self.oc.find(i);
+        }
+
+        // skip contig
+        while self.u_c < self.oc.contigs.len()
+            && self.oc.contigs[self.u_c].cmp(&i) == Ordering::Less
+        {
+            self.u_c += 1;
+        }
+
+        if self.u_c < self.oc.contigs.len() {
+            let c = &self.oc.contigs[self.u_c];
+            if c.contains(i) {
+                let nbh = c.get_neighbourhood(i);
+                self.next_i = i;
+                self.advance();
+                Some(nbh)
+            } else {
+                self.next_i = c.origin;
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a, Idx, T> Iterator for OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
+        + Default
         + One
         + FromPrimitive
         + ToPrimitive
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
-        + SubAssign
-        + AddAssign,
+        + AddAssign
+        + SubAssign,
 {
     type Item = Neighbourhood<'a, Idx, T>;
 
     fn next(&mut self) -> Option<Neighbourhood<'a, Idx, T>> {
         if self.u_c < self.oc.contigs.len() {
             let nbh = self.oc.contigs[self.u_c].get_neighbourhood(self.next_i);
-
-            // advance
-            self.next_i += Idx::one();
-            if !self.oc.contigs[self.u_c].contains(self.next_i) {
-                self.u_c += 1;
-                if self.u_c < self.oc.contigs.len() {
-                    self.next_i = self.oc.contigs[self.u_c].origin;
-                }
-            }
+            self.advance();
             Some(nbh)
         } else {
             None
@@ -363,12 +430,14 @@ where
 impl<Idx, T> CartesianContigs<Idx, T>
 where
     Idx: Copy
+        + Default
         + One
         + FromPrimitive
         + ToPrimitive
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
+        + AddAssign
         + SubAssign,
 {
     fn new() -> CartesianContigs<Idx, T> {

@@ -170,9 +170,9 @@ fn test_ordered_contigs_get() {
 }
 
 #[test]
-fn test_ordered_contigs_neighbourhood_iter() {
-    fn vec_from(oc: &OrderedContigs<i32, u8>, i: i32) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
-        oc.neighbourhood_enumerator(i)
+fn test_ordered_contigs_enumerator() {
+    fn enumerator_as_vec(oc: &OrderedContigs<i32, u8>) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
+        oc.neighbourhood_enumerator()
             .map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
             .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
     }
@@ -184,13 +184,44 @@ fn test_ordered_contigs_neighbourhood_iter() {
     oc.set(13, 13u8);
 
     assert_eq!(
-        vec_from(oc, 0),
+        enumerator_as_vec(oc),
         vec![
             (10, None, 10u8, Some(11u8)),
             (11, Some(10u8), 11u8, None),
             (13, None, 13u8, None),
         ]
     );
+}
+
+#[test]
+fn test_ordered_contigs_enumerator_get() {
+    type Nbh<'a> = Neighbourhood<'a, i32, u8>;
+    type NbhTuple = (i32, Option<u8>, u8, Option<u8>);
+
+    fn unpack_neighbourhood(nbh: &Nbh) -> NbhTuple {
+        (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied())
+    }
+
+    fn get(e: &mut OrderedContigsNeighbourhoodEnumerator<i32, u8>, i: i32) -> Option<NbhTuple> {
+        e.get(i).as_ref().map(unpack_neighbourhood)
+    }
+
+    fn next(e: &mut OrderedContigsNeighbourhoodEnumerator<i32, u8>) -> Option<NbhTuple> {
+        e.next().as_ref().map(unpack_neighbourhood)
+    }
+
+    let oc = &mut OrderedContigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]);
+
+    let mut e1 = oc.neighbourhood_enumerator_from(11);
+    assert_eq!(get(&mut e1, 11), Some((11, Some(10u8), 11u8, None)));
+    assert_eq!(get(&mut e1, 12), None);
+    assert_eq!(get(&mut e1, 13), Some((13, None, 13u8, None)));
+
+    let mut e2 = oc.neighbourhood_enumerator_from(12);
+    assert_eq!(next(&mut e2), Some((13, None, 13u8, None)));
+    assert_eq!(next(&mut e2), None);
+    assert_eq!(get(&mut e2, 12), None);
+    assert_eq!(next(&mut e2), Some((13, None, 13u8, None)));
 }
 
 #[test]
