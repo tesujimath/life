@@ -47,7 +47,7 @@ where
         }
     }
 
-    // provide a reference to the indexed item
+    /// provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
         if i >= self.origin {
             self.items.get(Idx::to_usize(&(i - self.origin)).unwrap())
@@ -56,7 +56,7 @@ where
         }
     }
 
-    // provide a mutable reference to the indexed item
+    /// provide a mutable reference to the indexed item
     fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
         if i >= self.origin {
             self.items
@@ -277,7 +277,7 @@ where
         }
     }
 
-    // provide a reference to the indexed item
+    /// provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
         if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
             self.contigs[i_c].get(i)
@@ -286,7 +286,7 @@ where
         }
     }
 
-    // provide a mutable reference to the indexed item
+    /// provide a mutable reference to the indexed item
     fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
         if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
             self.contigs[i_c].get_mut(i)
