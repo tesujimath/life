@@ -228,6 +228,30 @@ fn test_ordered_contigs_get() {
 }
 
 #[test]
+fn test_ordered_contigs_neighbourhood_iter() {
+    fn vec_from(oc: &OrderedContigs<i32, u8>, i: i32) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
+        oc.neighbourhood_iter(i)
+            .map(|nb| (nb.i, nb.left.copied(), *nb.this, nb.right.copied()))
+            .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
+    }
+
+    let oc = &mut OrderedContigs::new();
+
+    oc.set(10, 10u8);
+    oc.set(11, 11u8);
+    oc.set(13, 13u8);
+
+    assert_eq!(
+        vec_from(oc, 0),
+        vec![
+            (10, None, 10u8, Some(11u8)),
+            (11, Some(10u8), 11u8, Some(12u8)),
+            (12, Some(11u8), 12u8, None),
+        ]
+    );
+}
+
+#[test]
 fn test_cartesian_contigs_set() {
     let mut c = CartesianContigs::new();
     c.set(1, 1, 11u8);

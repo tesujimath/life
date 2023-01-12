@@ -250,28 +250,28 @@ where
         use OrderedContigsUpdate::*;
 
         match self.contigs.binary_search_by(|c| c.cmp(&i)) {
-            Ok(i_c) => Set(i_c),
-            Err(i_c) => {
-                let c_left_o = if i_c > 0 {
-                    self.contigs.get(i_c - 1)
+            Ok(u) => Set(u),
+            Err(u) => {
+                let c_left_o = if u > 0 {
+                    self.contigs.get(u - 1)
                 } else {
-                    self.contigs.get(i_c)
+                    self.contigs.get(u)
                 };
 
-                match (c_left_o, self.contigs.get(i_c)) {
+                match (c_left_o, self.contigs.get(u)) {
                     (Some(c_left), Some(c_i)) if c_i.adjoins_left(i) => {
                         if c_left.adjoins_right(i) {
-                            PushFrontAndCoelesce(i_c)
+                            PushFrontAndCoelesce(u)
                         } else {
-                            PushFront(i_c)
+                            PushFront(u)
                         }
                     }
 
-                    (None, Some(c_i)) if c_i.adjoins_left(i) => PushFront(i_c),
+                    (None, Some(c_i)) if c_i.adjoins_left(i) => PushFront(u),
 
-                    (Some(c_left), _) if c_left.adjoins_right(i) => PushBack(i_c - 1),
+                    (Some(c_left), _) if c_left.adjoins_right(i) => PushBack(u - 1),
 
-                    (_, _) => Insert(i_c),
+                    (_, _) => Insert(u),
                 }
             }
         }
@@ -279,8 +279,8 @@ where
 
     /// provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
-        if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
-            self.contigs[i_c].get(i)
+        if let Ok(u) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            self.contigs[u].get(i)
         } else {
             None
         }
@@ -288,8 +288,8 @@ where
 
     /// provide a mutable reference to the indexed item
     fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
-        if let Ok(i_c) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
-            self.contigs[i_c].get_mut(i)
+        if let Ok(u) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
+            self.contigs[u].get_mut(i)
         } else {
             None
         }
@@ -299,24 +299,86 @@ where
         use OrderedContigsUpdate::*;
 
         match self.determine_update(i) {
-            Set(i_c) => self.contigs[i_c][i] = item,
+            Set(u) => self.contigs[u][i] = item,
 
-            PushFront(i_c) => self.contigs[i_c].push_front(item),
+            PushFront(u) => self.contigs[u].push_front(item),
 
-            PushFrontAndCoelesce(i_c) => {
-                self.contigs[i_c].push_front(item);
-                self.coelesce_left(i_c);
+            PushFrontAndCoelesce(u) => {
+                self.contigs[u].push_front(item);
+                self.coelesce_left(u);
             }
 
-            PushBack(i_c) => self.contigs[i_c].push_back(item),
+            PushBack(u) => self.contigs[u].push_back(item),
 
-            Insert(i_c) => self.contigs.insert(i_c, Contig::new(i, item)),
+            Insert(u) => self.contigs.insert(u, Contig::new(i, item)),
         }
     }
 
-    fn coelesce_left(&mut self, i_c: usize) {
-        if let Some(mut removed_c) = self.contigs.remove(i_c) {
-            self.contigs[i_c - 1].append(&mut removed_c);
+    fn coelesce_left(&mut self, u: usize) {
+        if let Some(mut removed_c) = self.contigs.remove(u) {
+            self.contigs[u - 1].append(&mut removed_c);
+        }
+    }
+
+    fn neighbourhood_iter(&self, from: Idx) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+        let next_u = match self.contigs.binary_search_by(|c| c.cmp(&from)) {
+            Ok(u) => u,
+            Err(u) => u,
+        };
+
+        OrderedContigsNeighbourhoodEnumerator::new(&self, next_u, from)
+    }
+}
+
+struct OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy,
+{
+    oc: &'a OrderedContigs<Idx, T>,
+    next_u: usize,
+    next_i: Idx,
+    enumerator: Option<ContigNeighbourhoodEnumerator<'a, Idx, T>>,
+}
+
+impl<'a, Idx, T> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + SubAssign,
+{
+    fn new(
+        oc: &'a OrderedContigs<Idx, T>,
+        next_u: usize,
+        next_i: Idx,
+    ) -> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T> {
+        OrderedContigsNeighbourhoodEnumerator {
+            oc,
+            next_u,
+            next_i,
+            enumerator: oc.contigs.get(next_u).map(|c| c.neighbourhood_iter(next_i)),
+        }
+    }
+}
+
+impl<'a, Idx, T> Iterator for OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy + FromPrimitive + ToPrimitive + Add<Output = Idx> + Sub<Output = Idx> + PartialOrd,
+{
+    type Item = Neighbourhood<'a, Idx, T>;
+
+    fn next(&mut self) -> Option<Neighbourhood<'a, Idx, T>> {
+        match &mut self.enumerator {
+            Some(e) => {
+                // TODO when e.next() returns None, go on to the next contig
+                e.next()
+            }
+
+            None => None,
         }
     }
 }
