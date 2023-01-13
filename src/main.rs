@@ -2,4 +2,4 @@ fn main() {
     println!("Hello, world!");
 }
 
-mod playfield;
+mod contig;
