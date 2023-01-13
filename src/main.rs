@@ -3,3 +3,4 @@ fn main() {
 }
 
 mod contig;
+mod playfield;

@@ -423,7 +423,7 @@ where
 }
 
 /// 2D array of Contigs, organised in rows
-struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
+pub struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
 where
     Idx: Copy;
 
@@ -440,15 +440,15 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new() -> CartesianContigs<Idx, T> {
+    pub fn new() -> CartesianContigs<Idx, T> {
         CartesianContigs(OrderedContigs::new())
     }
 
-    fn get(&self, x: Idx, y: Idx) -> Option<&T> {
+    pub fn get(&self, x: Idx, y: Idx) -> Option<&T> {
         self.0.get(y).and_then(|c| c.get(x))
     }
 
-    fn set(&mut self, x: Idx, y: Idx, item: T) {
+    pub fn set(&mut self, x: Idx, y: Idx, item: T) {
         match self.0.get_mut(y) {
             Some(c) => {
                 c.set(x, item);
