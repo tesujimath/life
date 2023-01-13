@@ -14,7 +14,7 @@ use std::ops::Sub;
 use std::ops::SubAssign;
 
 /// a trait like Ord<RHS>
-/// see https://github.com/rust-lang/rfcs/issues/2511
+/// see [Rust RFC issue 2511](https://github.com/rust-lang/rfcs/issues/2511)
 trait Ord2<RHS> {
     fn cmp(&self, other: &RHS) -> Ordering;
 }
@@ -422,7 +422,7 @@ where
     }
 }
 
-// 2D array of Contigs, organised in rows
+/// 2D array of Contigs, organised in rows
 struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
 where
     Idx: Copy;
