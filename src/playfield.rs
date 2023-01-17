@@ -3,7 +3,6 @@
 
 use super::contig::CartesianContigs;
 use std::iter::Iterator;
-use std::slice::Iter;
 
 /// Array of bits, organised as double rows.
 /// Each item represents two rows of bits of width `BLOCKSIZE`.
@@ -18,32 +17,40 @@ struct Playfield {
 const BLOCKSIZE: usize = 4;
 const ZEROBLOCK: u8 = 0;
 
-struct PairwiseOrZeroes<'a> {
-    i1: Iter<'a, u8>,
-    i2o: Option<Iter<'a, u8>>,
+struct PairwiseOrDefault<I> {
+    i1: I,
+    i2o: Option<I>,
 }
 
-impl<'a> PairwiseOrZeroes<'a> {
-    fn new(rows: &'a [&'a [u8]]) -> PairwiseOrZeroes<'a> {
-        PairwiseOrZeroes {
-            i1: rows[0].iter(),
-            i2o: rows.get(1).map(|r| r.iter()),
-        }
+impl<I> PairwiseOrDefault<I> {
+    fn new<Outer, Inner>(rows: Outer) -> PairwiseOrDefault<<Inner as IntoIterator>::IntoIter>
+    where
+        Outer: IntoIterator<Item = Inner>,
+        Inner: IntoIterator<Item = u8>,
+    {
+        let mut rows_iter = rows.into_iter();
+        let i1 = rows_iter.by_ref().next().unwrap().into_iter();
+        let i2o = rows_iter.next().map(|i| i.into_iter());
+
+        PairwiseOrDefault { i1, i2o }
     }
 }
 
-impl<'a> Iterator for PairwiseOrZeroes<'a> {
-    type Item = (&'a u8, &'a u8);
+impl<I> Iterator for PairwiseOrDefault<I>
+where
+    I: Iterator<Item = u8>,
+{
+    type Item = (u8, u8);
 
-    fn next(&mut self) -> Option<(&'a u8, &'a u8)> {
+    fn next(&mut self) -> Option<(u8, u8)> {
         match &mut self.i2o {
             Some(i2) => match (self.i1.next(), i2.next()) {
                 (Some(x1), Some(x2)) => Some((x1, x2)),
-                (Some(x1), None) => Some((x1, &0u8)),
-                (None, Some(x2)) => Some((&0u8, x2)),
+                (Some(x1), None) => Some((x1, 0u8)),
+                (None, Some(x2)) => Some((0u8, x2)),
                 (None, None) => None,
             },
-            None => self.i1.next().map(|x1| (x1, &0u8)),
+            None => self.i1.next().map(|x1| (x1, 0u8)),
         }
     }
 }
@@ -55,15 +62,15 @@ impl Playfield {
         }
     }
 
-    fn from<I>(rows_of_bytes: &[&[u8]]) -> Playfield {
-        for chunk in rows_of_bytes.chunks(2) {
-            for p in PairwiseOrZeroes::new(chunk) {
-                println!("pair {:?} {:?}", p.0, p.1)
-            }
-        }
+    // fn from<I>(rows_of_bytes: &[&[u8]]) -> Playfield {
+    //     for chunk in rows_of_bytes.chunks(2) {
+    //         for p in PairwiseOrZeroes::new(chunk) {
+    //             println!("pair {:?} {:?}", p.0, p.1)
+    //         }
+    //     }
 
-        Playfield::new()
-    }
+    //     Playfield::new()
+    // }
 }
 
 mod tests;
