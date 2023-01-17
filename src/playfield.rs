@@ -5,17 +5,15 @@ use super::contig::CartesianContigs;
 use std::iter::Iterator;
 
 /// turns separate iterators into iterator of pairs
-struct PairwiseOrDefault<I, X> {
+struct PairwiseOrDefault<I> {
     i0: I,
     i1: Option<I>,
-    default: X,
 }
 
-impl<'a, I, X> PairwiseOrDefault<I, X> {
-    fn from<Outer, Inner>(
+impl<I> PairwiseOrDefault<I> {
+    fn from<'a, Outer, Inner, X>(
         rows: Outer,
-        default: X,
-    ) -> PairwiseOrDefault<<Inner as IntoIterator>::IntoIter, X>
+    ) -> PairwiseOrDefault<<Inner as IntoIterator>::IntoIter>
     where
         Outer: IntoIterator<Item = Inner>,
         Inner: IntoIterator<Item = &'a X>,
@@ -26,14 +24,14 @@ impl<'a, I, X> PairwiseOrDefault<I, X> {
         let i1 = rows_iter.by_ref().next().map(|i| i.into_iter());
         assert!(rows_iter.next().is_none(), "too many rows");
 
-        PairwiseOrDefault { i0, i1, default }
+        PairwiseOrDefault { i0, i1 }
     }
 }
 
-impl<'a, I, X> Iterator for PairwiseOrDefault<I, X>
+impl<'a, I, X> Iterator for PairwiseOrDefault<I>
 where
     I: Iterator<Item = &'a X>,
-    X: 'a + Copy,
+    X: 'a + Copy + Default,
 {
     type Item = (X, X);
 
@@ -41,11 +39,11 @@ where
         match &mut self.i1 {
             Some(i2) => match (self.i0.next(), i2.next()) {
                 (Some(x1), Some(x2)) => Some((*x1, *x2)),
-                (Some(x1), None) => Some((*x1, self.default)),
-                (None, Some(x2)) => Some((self.default, *x2)),
+                (Some(x1), None) => Some((*x1, X::default())),
+                (None, Some(x2)) => Some((X::default(), *x2)),
                 (None, None) => None,
             },
-            None => self.i0.next().map(|x1| (*x1, self.default)),
+            None => self.i0.next().map(|x1| (*x1, X::default())),
         }
     }
 }
