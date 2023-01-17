@@ -4,19 +4,7 @@
 use super::contig::CartesianContigs;
 use std::iter::Iterator;
 
-/// Array of bits, organised as double rows.
-/// Each item represents two rows of bits of width `BLOCKSIZE`.
-///
-/// The reason for double rows is so that non-contiguous rows cannot both influence
-/// new cell birth in the intermediate row, which would otherwise be possible.
-struct Playfield {
-    contigs: CartesianContigs<i32, u8>,
-}
-
-/// half of the width in bits of the playfield storage type
-const BLOCKSIZE: usize = 4;
-const ZEROBLOCK: u8 = 0;
-
+/// turns separate iterators into iterator of pairs
 struct PairwiseOrDefault<I> {
     i0: I,
     i1: Option<I>,
@@ -30,9 +18,10 @@ impl<I> PairwiseOrDefault<I> {
     {
         let mut rows_iter = rows.into_iter();
         let i0 = rows_iter.by_ref().next().unwrap().into_iter();
-        let i1o = rows_iter.next().map(|i| i.into_iter());
+        let i1 = rows_iter.by_ref().next().map(|i| i.into_iter());
+        assert!(rows_iter.next().is_none(), "too many rows");
 
-        PairwiseOrDefault { i0, i1: i1o }
+        PairwiseOrDefault { i0, i1 }
     }
 }
 
@@ -56,6 +45,19 @@ where
     }
 }
 
+/// Array of bits, organised as double rows.
+/// Each item represents two rows of bits of width `BLOCKSIZE`.
+///
+/// The reason for double rows is so that non-contiguous rows cannot both influence
+/// new cell birth in the intermediate row, which would otherwise be possible.
+struct Playfield {
+    contigs: CartesianContigs<i32, u8>,
+}
+
+/// half of the width in bits of the playfield storage type
+const BLOCKSIZE: usize = 4;
+const ZEROBLOCK: u8 = 0;
+
 impl Playfield {
     fn new() -> Playfield {
         Playfield {
@@ -64,8 +66,9 @@ impl Playfield {
     }
 
     // fn from<I>(rows_of_bytes: &[&[u8]]) -> Playfield {
+    //     use std::vec::IntoIter;
     //     for chunk in rows_of_bytes.chunks(2) {
-    //         for p in PairwiseOrZeroes::new(chunk) {
+    //         for p in PairwiseOrDefault::<IntoIter<u8>>::from(chunk) {
     //             println!("pair {:?} {:?}", p.0, p.1)
     //         }
     //     }
