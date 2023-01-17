@@ -7,21 +7,20 @@ fn test_pairwise_or_default() {
 
     let r0 = vec![vec![1u8, 2u8, 3u8], vec![11u8]];
 
-    let vec_ref = PairwiseOrDefault::<IntoIter<&u8>, &u8>::from(&r0, &0);
+    let vec_ref = PairwiseOrDefault::<IntoIter<u8>, u8>::from(&r0, 0);
     assert_eq!(
-        vec_ref.collect::<Vec<(&u8, &u8)>>(),
-        vec![(&1u8, &11u8), (&2u8, &0u8), (&3u8, &0u8)]
+        vec_ref.collect::<Vec<(u8, u8)>>(),
+        vec![(1u8, 11u8), (2u8, 0u8), (3u8, 0u8)]
     );
 
-    // consumes r0
-    let p0 = PairwiseOrDefault::<IntoIter<u8>, u8>::from(r0, 0);
+    let p0 = PairwiseOrDefault::<IntoIter<u8>, u8>::from(&r0, 0);
     assert_eq!(
         p0.collect::<Vec<(u8, u8)>>(),
         vec![(1u8, 11u8), (2u8, 0u8), (3u8, 0u8)]
     );
 
-    // consumes the vec
-    let p1 = PairwiseOrDefault::<IntoIter<u8>, u8>::from(vec![vec![1u8, 2u8, 3u8]], 0);
+    let r1 = vec![vec![1u8, 2u8, 3u8]];
+    let p1 = PairwiseOrDefault::<IntoIter<u8>, u8>::from(&r1, 0);
     assert_eq!(
         p1.collect::<Vec<(u8, u8)>>(),
         vec![(1u8, 0u8), (2u8, 0u8), (3u8, 0u8)]

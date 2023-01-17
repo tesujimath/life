@@ -11,14 +11,15 @@ struct PairwiseOrDefault<I, X> {
     default: X,
 }
 
-impl<I, X> PairwiseOrDefault<I, X> {
+impl<'a, I, X> PairwiseOrDefault<I, X> {
     fn from<Outer, Inner>(
         rows: Outer,
         default: X,
     ) -> PairwiseOrDefault<<Inner as IntoIterator>::IntoIter, X>
     where
         Outer: IntoIterator<Item = Inner>,
-        Inner: IntoIterator<Item = X>,
+        Inner: IntoIterator<Item = &'a X>,
+        X: 'a,
     {
         let mut rows_iter = rows.into_iter();
         let i0 = rows_iter.by_ref().next().unwrap().into_iter();
@@ -29,22 +30,22 @@ impl<I, X> PairwiseOrDefault<I, X> {
     }
 }
 
-impl<I, X> Iterator for PairwiseOrDefault<I, X>
+impl<'a, I, X> Iterator for PairwiseOrDefault<I, X>
 where
-    I: Iterator<Item = X>,
-    X: Copy,
+    I: Iterator<Item = &'a X>,
+    X: 'a + Copy,
 {
     type Item = (X, X);
 
     fn next(&mut self) -> Option<(X, X)> {
         match &mut self.i1 {
             Some(i2) => match (self.i0.next(), i2.next()) {
-                (Some(x1), Some(x2)) => Some((x1, x2)),
-                (Some(x1), None) => Some((x1, self.default)),
-                (None, Some(x2)) => Some((self.default, x2)),
+                (Some(x1), Some(x2)) => Some((*x1, *x2)),
+                (Some(x1), None) => Some((*x1, self.default)),
+                (None, Some(x2)) => Some((self.default, *x2)),
                 (None, None) => None,
             },
-            None => self.i0.next().map(|x1| (x1, self.default)),
+            None => self.i0.next().map(|x1| (*x1, self.default)),
         }
     }
 }
