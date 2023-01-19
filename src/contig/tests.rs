@@ -89,9 +89,7 @@ fn test_contigs_binary_search() {
 
 #[test]
 fn test_ordered_contigs_set() {
-    let oc = &mut OrderedContigs::new();
-
-    oc.set(10, 10u8);
+    let oc = &mut OrderedContigs::new(10, 10u8);
     assert_eq!(
         *oc,
         OrderedContigs {
@@ -155,9 +153,8 @@ fn test_ordered_contigs_set() {
 
 #[test]
 fn test_ordered_contigs_get() {
-    let oc = &mut OrderedContigs::new();
+    let oc = &mut OrderedContigs::new(10, 10u8);
 
-    oc.set(10, 10u8);
     oc.set(11, 11u8);
     oc.set(13, 13u8);
 
@@ -177,9 +174,8 @@ fn test_ordered_contigs_enumerator() {
             .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
     }
 
-    let oc = &mut OrderedContigs::new();
+    let oc = &mut OrderedContigs::new(10, 10u8);
 
-    oc.set(10, 10u8);
     oc.set(11, 11u8);
     oc.set(13, 13u8);
 
@@ -210,7 +206,7 @@ fn test_ordered_contigs_enumerator_get() {
         e.next().as_ref().map(unpack_neighbourhood)
     }
 
-    let oc = &mut OrderedContigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]);
+    let oc = OrderedContigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
 
     let mut e1 = oc.neighbourhood_enumerator_from(11);
     assert_eq!(get(&mut e1, 11), Some((11, Some(10u8), 11u8, None)));

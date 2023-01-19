@@ -200,21 +200,29 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new() -> OrderedContigs<Idx, T> {
-        OrderedContigs {
-            contigs: VecDeque::new(),
-        }
+    fn new(i: Idx, item: T) -> OrderedContigs<Idx, T> {
+        let c = Contig::new(i, item);
+        let mut contigs = VecDeque::new();
+        contigs.push_front(c);
+        OrderedContigs { contigs }
     }
 
-    fn from<I>(it: I) -> OrderedContigs<Idx, T>
+    fn from<I>(into_it: I) -> Option<OrderedContigs<Idx, T>>
     where
         I: IntoIterator<Item = (Idx, T)>,
     {
-        let oc0 = OrderedContigs::new();
-        it.into_iter().fold(oc0, |mut oc, (i, item)| {
-            oc.set(i, item);
-            oc
-        })
+        let mut it = into_it.into_iter();
+
+        match it.by_ref().next() {
+            Some((i, item)) => {
+                let oc0 = OrderedContigs::new(i, item);
+                Some(it.fold(oc0, |mut oc, (i, item)| {
+                    oc.set(i, item);
+                    oc
+                }))
+            }
+            None => None,
+        }
     }
 
     fn determine_update(&self, i: Idx) -> OrderedContigsUpdate {
@@ -455,20 +463,16 @@ where
     }
 
     pub fn set(&mut self, x: Idx, y: Idx, item: T) {
-        let rows = match self.0 {
-            Some(ref mut rows) => rows,
-            None => self.0.insert(OrderedContigs::new()),
-        };
-        let row = match rows.get_mut(y) {
-            Some(row) => row,
+        match self.0 {
+            Some(ref mut rows) => match rows.get_mut(y) {
+                Some(row) => row.set(x, item),
+                None => rows.set(y, OrderedContigs::new(x, item)),
+            },
             None => {
-                let row = OrderedContigs::new();
-                rows.set(y, row);
-                // TODO should set() return a &mut to avoid this additional query?
-                rows.get_mut(y).unwrap()
+                self.0
+                    .replace(OrderedContigs::new(y, OrderedContigs::new(x, item)));
             }
         };
-        row.set(x, item);
     }
 }
 
