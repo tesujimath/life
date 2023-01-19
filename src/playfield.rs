@@ -53,13 +53,18 @@ where
 ///
 /// The reason for double rows is so that non-contiguous rows cannot both influence
 /// new cell birth in the intermediate row, which would otherwise be possible.
-struct Playfield {
-    contigs: CartesianContigs<i32, u8>,
+pub struct Playfield {
+    contigs: CartesianContigs<i32, u16>,
 }
 
-/// half of the width in bits of the playfield storage type
-const BLOCKSIZE: usize = 4;
-const ZEROBLOCK: u8 = 0;
+#[derive(Default)]
+pub struct Coordinate<T>
+where
+    T: Default,
+{
+    pub x: T,
+    pub y: T,
+}
 
 impl Playfield {
     fn new() -> Playfield {
@@ -68,16 +73,38 @@ impl Playfield {
         }
     }
 
-    // fn from<I>(rows_of_bytes: &[&[u8]]) -> Playfield {
-    //     use std::vec::IntoIter;
-    //     for chunk in rows_of_bytes.chunks(2) {
-    //         for p in PairwiseOrDefault::<IntoIter<u8>>::from(chunk) {
-    //             println!("pair {:?} {:?}", p.0, p.1)
-    //         }
-    //     }
+    pub fn from(rows_of_bytes: &Vec<Vec<u8>>, origin: Coordinate<i32>) -> Playfield {
+        use std::vec::IntoIter;
 
-    //     Playfield::new()
-    // }
+        let mut playfield = Playfield::new();
+
+        for (y, chunk) in rows_of_bytes.chunks(2).enumerate() {
+            for (x, p) in PairwiseOrDefault::<IntoIter<u8>>::from(chunk).enumerate() {
+                let merged_pair = p.0 as u16 | (p.1 as u16) << 8;
+                println!(
+                    "pair ({}, {}) {:02x}{:02x}\n----------- {:04x}",
+                    x, y, p.1, p.0, merged_pair
+                );
+                if merged_pair != 0 {
+                    playfield
+                        .contigs
+                        .set(x as i32 + origin.x, y as i32 + origin.y, merged_pair);
+                }
+            }
+        }
+
+        playfield
+    }
+
+    pub fn to_rows_of_bytes(&self) -> (Vec<Vec<u8>>, Coordinate<i32>) {
+        if self.contigs.is_empty() {
+            (Vec::new(), Coordinate::default())
+        } else {
+            (Vec::new(), Coordinate::default())
+            //let origin = Coordinate{ x: 0, y: self.contigs}
+            //      (vec![vec![]], Coordinate { x: 0, y: 0 })
+        }
+    }
 }
 
 mod tests;

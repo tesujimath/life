@@ -422,8 +422,8 @@ where
     }
 }
 
-/// 2D array of Contigs, organised in rows
-pub struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
+/// nonempty 2D array of Contigs, organised in rows, or None
+pub struct CartesianContigs<Idx, T>(Option<OrderedContigs<Idx, OrderedContigs<Idx, T>>>)
 where
     Idx: Copy;
 
@@ -441,25 +441,43 @@ where
         + SubAssign,
 {
     pub fn new() -> CartesianContigs<Idx, T> {
-        CartesianContigs(OrderedContigs::new())
+        CartesianContigs(None)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        (&self.0).is_some()
     }
 
     pub fn get(&self, x: Idx, y: Idx) -> Option<&T> {
-        self.0.get(y).and_then(|c| c.get(x))
+        match &self.0 {
+            None => None,
+            Some(rows) => match rows.get(y) {
+                None => None,
+                Some(row) => row.get(x),
+            },
+        }
     }
 
-    pub fn set(&mut self, x: Idx, y: Idx, item: T) {
-        match self.0.get_mut(y) {
-            Some(c) => {
-                c.set(x, item);
-            }
+    // TODO rewrite get() using and_then
+    //pub fn get2(&self, x: Idx, y: Idx) -> Option<&T> {
+    //    (&self.0).and_then(|ref rows| rows.get(y).and_then(|row| row.get(x)))
+    //}
 
+    pub fn set(&mut self, x: Idx, y: Idx, item: T) {
+        let rows = match self.0 {
+            Some(ref mut rows) => rows,
+            None => self.0.insert(OrderedContigs::new()),
+        };
+        let row = match rows.get_mut(y) {
+            Some(row) => row,
             None => {
-                let mut row = OrderedContigs::new();
-                row.set(x, item);
-                self.0.set(y, row);
+                let row = OrderedContigs::new();
+                rows.set(y, row);
+                // TODO should set() return a &mut to avoid this additional query?
+                rows.get_mut(y).unwrap()
             }
-        }
+        };
+        row.set(x, item);
     }
 }
 
