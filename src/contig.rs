@@ -449,19 +449,10 @@ where
     }
 
     pub fn get(&self, x: Idx, y: Idx) -> Option<&T> {
-        match &self.0 {
-            None => None,
-            Some(rows) => match rows.get(y) {
-                None => None,
-                Some(row) => row.get(x),
-            },
-        }
+        self.0
+            .as_ref()
+            .and_then(|rows| rows.get(y).and_then(|row| row.get(x)))
     }
-
-    // TODO rewrite get() using and_then
-    //pub fn get2(&self, x: Idx, y: Idx) -> Option<&T> {
-    //    (&self.0).and_then(|ref rows| rows.get(y).and_then(|row| row.get(x)))
-    //}
 
     pub fn set(&mut self, x: Idx, y: Idx, item: T) {
         let rows = match self.0 {
