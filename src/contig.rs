@@ -5,6 +5,7 @@ use num::FromPrimitive;
 use num::One;
 use num::ToPrimitive;
 use std::cmp::Ordering;
+use std::cmp::PartialOrd;
 use std::collections::VecDeque;
 use std::ops::Add;
 use std::ops::AddAssign;
@@ -223,6 +224,10 @@ where
             }
             None => None,
         }
+    }
+
+    fn origin(&self) -> Idx {
+        self.contigs[0].origin
     }
 
     fn determine_update(&self, i: Idx) -> OrderedContigsUpdate {
@@ -454,6 +459,7 @@ where
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
+        + Ord
         + AddAssign
         + SubAssign,
 {
@@ -473,9 +479,18 @@ where
         }
     }
 
-    //    pub fn origin(&self) -> Coordinate<Idx, Idx> {
-    //        Coordinate{ x: self.0.}
-    //  }
+    pub fn origin(&self) -> Coordinate<Idx> {
+        Coordinate {
+            x: self
+                .0
+                .contigs
+                .iter()
+                .min_by(|lhs, rhs| lhs.origin.cmp(&rhs.origin))
+                .unwrap()
+                .origin,
+            y: self.0.origin(),
+        }
+    }
 }
 
 mod tests;
