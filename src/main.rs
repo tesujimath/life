@@ -1,4 +1,5 @@
-use playfield::{Coordinate, Playfield};
+use contig::Coordinate;
+use playfield::Playfield;
 
 fn main() {
     println!("Hello, world!");

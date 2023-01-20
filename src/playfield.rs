@@ -1,7 +1,7 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code, unused_variables)]
 
-use super::contig::CartesianContigs;
+use super::contig::{CartesianContigs, Coordinate};
 use std::iter::Iterator;
 
 /// turns separate iterators into iterator of pairs
@@ -57,23 +57,14 @@ pub struct Playfield {
     contigs: CartesianContigs<i32, u16>,
 }
 
-#[derive(Default)]
-pub struct Coordinate<T>
-where
-    T: Default,
-{
-    pub x: T,
-    pub y: T,
-}
-
 impl Playfield {
     fn new() -> Playfield {
         Playfield {
-            contigs: CartesianContigs::new(),
+            contigs: CartesianContigs::new(0, 0, 0u16),
         }
     }
 
-    pub fn from(rows_of_bytes: &Vec<Vec<u8>>, origin: Coordinate<i32>) -> Playfield {
+    pub fn from(rows_of_bytes: &[Vec<u8>], origin: Coordinate<i32>) -> Playfield {
         use std::vec::IntoIter;
 
         let mut playfield = Playfield::new();
@@ -97,13 +88,7 @@ impl Playfield {
     }
 
     pub fn to_rows_of_bytes(&self) -> (Vec<Vec<u8>>, Coordinate<i32>) {
-        if self.contigs.is_empty() {
-            (Vec::new(), Coordinate::default())
-        } else {
-            (Vec::new(), Coordinate::default())
-            //let origin = Coordinate{ x: 0, y: self.contigs}
-            //      (vec![vec![]], Coordinate { x: 0, y: 0 })
-        }
+        (vec![vec![]], Coordinate { x: 0, y: 0 })
     }
 }
 

@@ -430,8 +430,17 @@ where
     }
 }
 
+#[derive(Default)]
+pub struct Coordinate<T>
+where
+    T: Default,
+{
+    pub x: T,
+    pub y: T,
+}
+
 /// nonempty 2D array of Contigs, organised in rows, or None
-pub struct CartesianContigs<Idx, T>(Option<OrderedContigs<Idx, OrderedContigs<Idx, T>>>)
+pub struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
 where
     Idx: Copy;
 
@@ -448,32 +457,25 @@ where
         + AddAssign
         + SubAssign,
 {
-    pub fn new() -> CartesianContigs<Idx, T> {
-        CartesianContigs(None)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        (&self.0).is_some()
+    /// create almost empty, with a single cell
+    pub fn new(x: Idx, y: Idx, item: T) -> CartesianContigs<Idx, T> {
+        CartesianContigs(OrderedContigs::new(y, OrderedContigs::new(x, item)))
     }
 
     pub fn get(&self, x: Idx, y: Idx) -> Option<&T> {
-        self.0
-            .as_ref()
-            .and_then(|rows| rows.get(y).and_then(|row| row.get(x)))
+        self.0.get(y).and_then(|row| row.get(x))
     }
 
     pub fn set(&mut self, x: Idx, y: Idx, item: T) {
-        match self.0 {
-            Some(ref mut rows) => match rows.get_mut(y) {
-                Some(row) => row.set(x, item),
-                None => rows.set(y, OrderedContigs::new(x, item)),
-            },
-            None => {
-                self.0
-                    .replace(OrderedContigs::new(y, OrderedContigs::new(x, item)));
-            }
-        };
+        match self.0.get_mut(y) {
+            Some(row) => row.set(x, item),
+            None => self.0.set(y, OrderedContigs::new(x, item)),
+        }
     }
+
+    //    pub fn origin(&self) -> Coordinate<Idx, Idx> {
+    //        Coordinate{ x: self.0.}
+    //  }
 }
 
 mod tests;

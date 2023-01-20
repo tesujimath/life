@@ -222,7 +222,7 @@ fn test_ordered_contigs_enumerator_get() {
 
 #[test]
 fn test_cartesian_contigs_set() {
-    let mut c = CartesianContigs::new();
+    let mut c = CartesianContigs::new(0, 0, 0u8);
     c.set(1, 1, 11u8);
     c.set(4, 2, 42u8);
 
