@@ -164,7 +164,7 @@ where
 }
 
 #[derive(PartialEq, Debug)]
-struct Neighbourhood<'a, Idx, T> {
+pub struct Neighbourhood<'a, Idx, T> {
     i: Idx,
     left: Option<&'a T>,
     this: &'a T,
@@ -173,7 +173,7 @@ struct Neighbourhood<'a, Idx, T> {
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
-struct OrderedContigs<Idx, T>
+pub struct OrderedContigs<Idx, T>
 where
     Idx: Copy,
 {
@@ -304,7 +304,11 @@ where
         }
     }
 
-    fn neighbourhood_enumerator(&self) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+    pub fn enumerator(&self) -> OrderedContigsEnumerator<Idx, T> {
+        OrderedContigsEnumerator::new(self)
+    }
+
+    pub fn neighbourhood_enumerator(&self) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
         let next_i = if !self.contigs.is_empty() {
             self.contigs[0].origin
         } else {
@@ -327,7 +331,7 @@ where
         }
     }
 
-    fn neighbourhood_enumerator_from(
+    pub fn neighbourhood_enumerator_from(
         &self,
         i: Idx,
     ) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
@@ -337,7 +341,7 @@ where
     }
 }
 
-struct OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+pub struct OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy,
 {
@@ -435,7 +439,50 @@ where
     }
 }
 
-#[derive(Default)]
+/// simple enumerator without the neighbourhood
+pub struct OrderedContigsEnumerator<'a, Idx, T>(OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>)
+where
+    Idx: Copy;
+
+impl<'a, Idx, T> OrderedContigsEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    fn new(oc: &'a OrderedContigs<Idx, T>) -> OrderedContigsEnumerator<'a, Idx, T> {
+        OrderedContigsEnumerator(oc.neighbourhood_enumerator())
+    }
+}
+
+impl<'a, Idx, T> Iterator for OrderedContigsEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    type Item = (Idx, &'a T);
+
+    fn next(&mut self) -> Option<(Idx, &'a T)> {
+        self.0.next().map(|ref nbh| (nbh.i, nbh.this))
+    }
+}
+
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Coordinate<T>
 where
     T: Default,
@@ -490,6 +537,10 @@ where
                 .origin,
             y: self.0.origin(),
         }
+    }
+
+    pub fn rows_enumerator(&self) -> OrderedContigsEnumerator<Idx, OrderedContigs<Idx, T>> {
+        self.0.enumerator()
     }
 }
 
