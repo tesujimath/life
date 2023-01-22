@@ -122,7 +122,7 @@ where
     {
         (
             (T::to_u16(&packed).unwrap() & 0xff) as u8,
-            (T::to_u16(&packed).unwrap() & 0xff00 >> 8) as u8,
+            ((T::to_u16(&packed).unwrap() & 0xff00) >> 8) as u8,
         )
     }
 

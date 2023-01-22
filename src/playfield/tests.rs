@@ -1,5 +1,6 @@
-#[cfg(test)]
 use super::*;
+#[cfg(test)]
+use assert_hex::assert_eq_hex;
 
 #[test]
 fn test_pairwise_or_default() {
@@ -69,4 +70,31 @@ fn test_bits_to_bytes() {
         p1.collect::<Vec<(u8, u8)>>(),
         vec![(0b00001000, 0), (0b10000001, 0)]
     );
+}
+
+#[test]
+fn test_pack_unpack_roundtrip() {
+    type P = Playfield<i32, u16>;
+
+    assert_eq_hex!(P::pack((3, 4)), 0x0403);
+    assert_eq_hex!(P::unpack(0x0605), (5, 6));
+
+    assert_eq_hex!(P::unpack(P::pack((1, 2))), (1, 2));
+}
+
+#[test]
+fn test_to_from_bytes_roundtrip() {
+    let bytes0: Vec<Vec<u8>> = vec![vec![0x01, 0x02], vec![0x13, 0x14], vec![0x25, 0x26]];
+    let origin0 = Coordinate { x: 0, y: 0 };
+
+    // roundtrip
+    let p = Playfield::<i32, u16>::from(&bytes0, origin0);
+    let (bytes1, origin1) = p.to_rows_of_bytes();
+
+    // always comes back as even number of rows
+    let mut expected = bytes0.clone();
+    expected.push(vec![0, 0]);
+
+    assert_eq_hex!(origin1, origin0);
+    assert_eq_hex!(bytes1, expected);
 }

@@ -482,16 +482,17 @@ where
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Coordinate<T>
 where
-    T: Default,
+    T: Default + PartialEq + Eq,
 {
     pub x: T,
     pub y: T,
 }
 
 /// nonempty 2D array of Contigs, organised in rows, or None
+#[derive(Debug)]
 pub struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
 where
     Idx: Copy;
