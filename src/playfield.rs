@@ -10,10 +10,6 @@ use std::cmp::PartialOrd;
 use std::iter::Iterator;
 use std::ops::Add;
 use std::ops::AddAssign;
-use std::ops::BitAnd;
-use std::ops::BitOr;
-use std::ops::Shl;
-use std::ops::Shr;
 use std::ops::Sub;
 use std::ops::SubAssign;
 
@@ -104,39 +100,54 @@ where
         }
     }
 
-    /// pack multiple bytes into playfield item - TODO make this work for any T
-    fn pack(pair: (u8, u8)) -> T
-    where
-        T: FromPrimitive + Shl<u8> + BitOr<<T as Shl<u8>>::Output, Output = T>,
-    {
-        let b0 = T::from_u8(pair.0).unwrap();
-        let b1 = T::from_u8(pair.1).unwrap();
+    /// pack a pair of halfblocks into a block
+    /// the halfblock type H must be half the size of the block type T
+    fn pack<H>(pair: (H, H)) -> T {
+        use std::mem::size_of;
+        assert!(size_of::<H>() * 2 == size_of::<T>());
 
-        b0 | b1 << 8
+        let packed: T = T::zero();
+        unsafe {
+            let p = &packed as *const T as *mut H;
+            *p = pair.0;
+            *(p.offset(1)) = pair.1
+        }
+        packed
     }
 
-    /// unpack multiple bytes from playfield item - TODO make this work for any T
-    fn unpack(packed: T) -> (u8, u8)
+    /// unpack a pair of halfblocks from a block
+    /// the halfblock type H must be half the size of the block type T
+    fn unpack<H>(packed: T) -> (H, H)
     where
-        T: AsPrimitive<u16> + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T>,
+        H: Zero + Copy,
     {
-        (
-            (T::as_(packed) & 0xff) as u8,
-            ((T::as_(packed) & 0xff00) >> 8) as u8,
-        )
+        use std::mem::size_of;
+        assert!(size_of::<H>() * 2 == size_of::<T>());
+
+        let p0: H;
+        let p1: H;
+
+        unsafe {
+            let p = &packed as *const T as *mut H;
+            p0 = *p;
+            p1 = *(p.offset(1));
+        }
+
+        (p0, p1)
     }
 
-    pub fn from(rows_of_bytes: &[Vec<u8>], origin: Coordinate<Idx>) -> Playfield<Idx, T>
+    pub fn from_rows<H>(rows_of_bytes: &[Vec<H>], origin: Coordinate<Idx>) -> Playfield<Idx, T>
     where
-        T: FromPrimitive + Shl<u8> + BitOr<<T as Shl<u8>>::Output, Output = T> + std::fmt::LowerHex,
+        T: std::fmt::LowerHex,
+        H: Copy + Default + std::fmt::LowerHex,
     {
         use std::vec::IntoIter;
 
         let mut playfield = Playfield::<Idx, T>::new();
 
         for (y_u, chunk) in rows_of_bytes.chunks(2).enumerate() {
-            for (x_u, p) in PairwiseOrDefault::<IntoIter<u8>>::from(chunk).enumerate() {
-                let merged_pair = Self::pack(p);
+            for (x_u, p) in PairwiseOrDefault::<IntoIter<H>>::from(chunk).enumerate() {
+                let merged_pair = Self::pack::<H>(p);
                 println!(
                     "pair ({}, {}) {:02x}{:02x}\n----------- {:04x}",
                     x_u, y_u, p.1, p.0, merged_pair
@@ -153,24 +164,25 @@ where
     }
 
     // space wasting conversion into packed vectors
-    pub fn to_rows_of_bytes(&self) -> (Vec<Vec<u8>>, Coordinate<Idx>)
+    pub fn to_rows<H>(&self) -> (Vec<Vec<H>>, Coordinate<Idx>)
     where
-        T: AsPrimitive<u16> + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T> + Copy,
         Idx: FromPrimitive,
+        T: Copy,
+        H: Zero + Copy,
     {
         let origin = self.contigs.origin();
-        let mut rows: Vec<Vec<u8>> = Vec::new();
+        let mut rows: Vec<Vec<H>> = Vec::new();
 
         for (y, row) in self.contigs.rows_enumerator() {
             let mut lower_items = Vec::new();
             let mut upper_items = Vec::new();
             for (x, merged_item) in row.enumerator() {
                 while origin.x < x - Idx::from_usize(lower_items.len()).unwrap() {
-                    lower_items.push(0u8);
-                    upper_items.push(0u8);
+                    lower_items.push(H::zero());
+                    upper_items.push(H::zero());
                 }
 
-                let (lower, upper) = Self::unpack(*merged_item);
+                let (lower, upper) = Self::unpack::<H>(*merged_item);
 
                 lower_items.push(lower);
                 upper_items.push(upper);
