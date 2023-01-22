@@ -2,9 +2,9 @@
 #![allow(dead_code, unused_variables)]
 
 use super::contig::{CartesianContigs, Coordinate};
+use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
-use num::ToPrimitive;
 use num::Zero;
 use std::cmp::PartialOrd;
 use std::iter::Iterator;
@@ -72,7 +72,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -88,7 +88,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -118,11 +118,11 @@ where
     /// unpack multiple bytes from playfield item - TODO make this work for any T
     fn unpack(packed: T) -> (u8, u8)
     where
-        T: ToPrimitive + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T>,
+        T: AsPrimitive<u16> + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T>,
     {
         (
-            (T::to_u16(&packed).unwrap() & 0xff) as u8,
-            ((T::to_u16(&packed).unwrap() & 0xff00) >> 8) as u8,
+            (T::as_(packed) & 0xff) as u8,
+            ((T::as_(packed) & 0xff00) >> 8) as u8,
         )
     }
 
@@ -155,7 +155,7 @@ where
     // space wasting conversion into packed vectors
     pub fn to_rows_of_bytes(&self) -> (Vec<Vec<u8>>, Coordinate<Idx>)
     where
-        T: ToPrimitive + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T> + Copy,
+        T: AsPrimitive<u16> + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T> + Copy,
         Idx: FromPrimitive,
     {
         let origin = self.contigs.origin();

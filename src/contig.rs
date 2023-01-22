@@ -1,9 +1,9 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
+use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
-use num::ToPrimitive;
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 use std::collections::VecDeque;
@@ -36,7 +36,7 @@ where
     Idx: Copy
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -57,7 +57,7 @@ where
     /// provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
         if i >= self.origin {
-            self.items.get(Idx::to_usize(&(i - self.origin)).unwrap())
+            self.items.get(Idx::as_(i - self.origin))
         } else {
             None
         }
@@ -66,8 +66,7 @@ where
     /// provide a mutable reference to the indexed item
     fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
         if i >= self.origin {
-            self.items
-                .get_mut(Idx::to_usize(&(i - self.origin)).unwrap())
+            self.items.get_mut(Idx::as_(i - self.origin))
         } else {
             None
         }
@@ -96,7 +95,7 @@ where
 
     /// get the neighbourhood for `i`, which must be in range
     fn get_neighbourhood(&self, i: Idx) -> Neighbourhood<Idx, T> {
-        let u = Idx::to_usize(&(i - self.origin)).unwrap();
+        let u = Idx::as_(i - self.origin);
         let left = if u > 0 {
             Some(&self.items[u - 1])
         } else {
@@ -119,7 +118,7 @@ where
     Idx: Copy
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -128,7 +127,7 @@ where
     type Output = T;
 
     fn index(&self, i: Idx) -> &Self::Output {
-        &self.items[Idx::to_usize(&(i - self.origin)).unwrap()]
+        &self.items[Idx::as_(i - self.origin)]
     }
 }
 
@@ -137,14 +136,14 @@ where
     Idx: Copy
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
         + SubAssign,
 {
     fn index_mut(&mut self, i: Idx) -> &mut Self::Output {
-        &mut self.items[Idx::to_usize(&(i - self.origin)).unwrap()]
+        &mut self.items[Idx::as_(i - self.origin)]
     }
 }
 
@@ -194,7 +193,7 @@ where
         + One
         + Default
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -356,7 +355,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -419,7 +418,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -450,7 +449,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -468,7 +467,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
@@ -503,7 +502,7 @@ where
         + Default
         + One
         + FromPrimitive
-        + ToPrimitive
+        + AsPrimitive<usize>
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
