@@ -2,7 +2,20 @@
 #![allow(dead_code, unused_variables)]
 
 use super::contig::{CartesianContigs, Coordinate};
+use num::FromPrimitive;
+use num::One;
+use num::ToPrimitive;
+use num::Zero;
+use std::cmp::PartialOrd;
 use std::iter::Iterator;
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::BitAnd;
+use std::ops::BitOr;
+use std::ops::Shl;
+use std::ops::Shr;
+use std::ops::Sub;
+use std::ops::SubAssign;
 
 /// turns separate iterators into iterator of pairs
 struct PairwiseOrDefault<I> {
@@ -53,33 +66,85 @@ where
 ///
 /// The reason for double rows is so that non-contiguous rows cannot both influence
 /// new cell birth in the intermediate row, which would otherwise be possible.
-pub struct Playfield {
-    contigs: CartesianContigs<i32, u16>,
+pub struct Playfield<Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    contigs: CartesianContigs<Idx, T>,
 }
 
-impl Playfield {
-    fn new() -> Playfield {
+impl<Idx, T> Playfield<Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + ToPrimitive
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign
+        + Zero
+        + Ord,
+    T: Zero,
+{
+    fn new() -> Playfield<Idx, T> {
         Playfield {
-            contigs: CartesianContigs::new(0, 0, 0u16),
+            contigs: CartesianContigs::new(Idx::zero(), Idx::zero(), T::zero()),
         }
     }
 
-    pub fn from(rows_of_bytes: &[Vec<u8>], origin: Coordinate<i32>) -> Playfield {
+    /// pack multiple bytes into playfield item - TODO make this work for any T
+    fn pack(pair: (u8, u8)) -> T
+    where
+        T: FromPrimitive + Shl<u8> + BitOr<<T as Shl<u8>>::Output, Output = T>,
+    {
+        let b0 = T::from_u8(pair.0).unwrap();
+        let b1 = T::from_u8(pair.1).unwrap();
+
+        b0 | b1 << 8
+    }
+
+    /// unpack multiple bytes from playfield item - TODO make this work for any T
+    fn unpack(packed: T) -> (u8, u8)
+    where
+        T: ToPrimitive + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T>,
+    {
+        (
+            (T::to_u16(&packed).unwrap() & 0xff) as u8,
+            (T::to_u16(&packed).unwrap() & 0xff00 >> 8) as u8,
+        )
+    }
+
+    pub fn from(rows_of_bytes: &[Vec<u8>], origin: Coordinate<Idx>) -> Playfield<Idx, T>
+    where
+        T: FromPrimitive + Shl<u8> + BitOr<<T as Shl<u8>>::Output, Output = T> + std::fmt::LowerHex,
+    {
         use std::vec::IntoIter;
 
-        let mut playfield = Playfield::new();
+        let mut playfield = Playfield::<Idx, T>::new();
 
-        for (y, chunk) in rows_of_bytes.chunks(2).enumerate() {
-            for (x, p) in PairwiseOrDefault::<IntoIter<u8>>::from(chunk).enumerate() {
-                let merged_pair = p.0 as u16 | (p.1 as u16) << 8;
+        for (y_u, chunk) in rows_of_bytes.chunks(2).enumerate() {
+            for (x_u, p) in PairwiseOrDefault::<IntoIter<u8>>::from(chunk).enumerate() {
+                let merged_pair = Self::pack(p);
                 println!(
                     "pair ({}, {}) {:02x}{:02x}\n----------- {:04x}",
-                    x, y, p.1, p.0, merged_pair
+                    x_u, y_u, p.1, p.0, merged_pair
                 );
-                if merged_pair != 0 {
-                    playfield
-                        .contigs
-                        .set(x as i32 + origin.x, y as i32 + origin.y, merged_pair);
+                if !T::is_zero(&merged_pair) {
+                    let x = Idx::from_usize(x_u).unwrap() + origin.x;
+                    let y = Idx::from_usize(y_u).unwrap() + origin.y;
+                    playfield.contigs.set(x, y, merged_pair);
                 }
             }
         }
@@ -87,8 +152,33 @@ impl Playfield {
         playfield
     }
 
-    pub fn to_rows_of_bytes(&self) -> (Vec<Vec<u8>>, Coordinate<i32>) {
-        (vec![vec![]], Coordinate { x: 0, y: 0 })
+    // space wasting conversion into packed vectors
+    pub fn to_rows_of_bytes(&self) -> (Vec<Vec<u8>>, Coordinate<Idx>)
+    where
+        T: ToPrimitive + Shr<u8> + BitAnd<<T as Shr<u8>>::Output, Output = T> + Copy,
+        Idx: FromPrimitive,
+    {
+        let origin = self.contigs.origin();
+        let mut rows: Vec<Vec<u8>> = Vec::new();
+
+        for (y, row) in self.contigs.rows_enumerator() {
+            let mut lower_items = Vec::new();
+            let mut upper_items = Vec::new();
+            for (x, merged_item) in row.enumerator() {
+                while origin.x < x - Idx::from_usize(lower_items.len()).unwrap() {
+                    lower_items.push(0u8);
+                    upper_items.push(0u8);
+                }
+
+                let (lower, upper) = Self::unpack(*merged_item);
+
+                lower_items.push(lower);
+                upper_items.push(upper);
+            }
+            rows.push(lower_items);
+            rows.push(upper_items);
+        }
+        (rows, origin)
     }
 }
 

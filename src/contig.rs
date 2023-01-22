@@ -163,7 +163,7 @@ where
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Neighbourhood<'a, Idx, T> {
     i: Idx,
     left: Option<&'a T>,
