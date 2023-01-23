@@ -231,3 +231,67 @@ fn test_cartesian_contigs_set() {
     assert_eq!(c.get(4, 1), None);
     assert_eq!(c.get(4, 2), Some(&42u8));
 }
+
+#[test]
+fn test_cartesian_contigs_enumerator() {
+    fn enumerator_as_vec(
+        cc: &CartesianContigs<i32, u8>,
+    ) -> Vec<(
+        i32,
+        i32,
+        Option<u8>,
+        Option<u8>,
+        Option<u8>,
+        Option<u8>,
+        u8,
+        Option<u8>,
+        Option<u8>,
+        Option<u8>,
+        Option<u8>,
+    )> {
+        cc.neighbourhood_enumerator()
+            .map(|nbh| {
+                (
+                    nbh.this.i,
+                    nbh.i,
+                    None,
+                    None,
+                    None,
+                    None,
+                    *nbh.this.this,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            })
+            .collect::<Vec<(
+                i32,
+                i32,
+                Option<u8>,
+                Option<u8>,
+                Option<u8>,
+                Option<u8>,
+                u8,
+                Option<u8>,
+                Option<u8>,
+                Option<u8>,
+                Option<u8>,
+            )>>()
+    }
+
+    let mut cc = CartesianContigs::new(0, 0, 0u8);
+    cc.set(1, 0, 1u8);
+    cc.set(2, 0, 2u8);
+    cc.set(1, 1, 11u8);
+
+    assert_eq!(
+        enumerator_as_vec(&cc),
+        vec![
+            (0, 0, None, None, None, None, 0, None, None, None, None,),
+            (1, 0, None, None, None, None, 1, None, None, None, None,),
+            (2, 0, None, None, None, None, 2, None, None, None, None,),
+            (1, 1, None, None, None, None, 11, None, None, None, None,),
+        ]
+    );
+}

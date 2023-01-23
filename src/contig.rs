@@ -542,6 +542,108 @@ where
     pub fn rows_enumerator(&self) -> OrderedContigsEnumerator<Idx, OrderedContigs<Idx, T>> {
         self.0.enumerator()
     }
+
+    pub fn neighbourhood_enumerator(&self) -> CartesianContigsNeighbourhoodEnumerator<Idx, T> {
+        CartesianContigsNeighbourhoodEnumerator::new(self)
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub struct CartesianNeighbourhood<Idx, T> {
+    i: Idx,
+    below: Option<Neighbourhood<Idx, T>>,
+    this: Neighbourhood<Idx, T>,
+    above: Option<Neighbourhood<Idx, T>>,
+}
+
+pub struct CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy,
+{
+    row_enumerator: OrderedContigsNeighbourhoodEnumerator<'a, Idx, OrderedContigs<Idx, T>>,
+    row_nbh: Option<Neighbourhood<Idx, &'a OrderedContigs<Idx, T>>>,
+
+    column_enumerators:
+        Option<Neighbourhood<Idx, OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>>>,
+}
+
+impl<'a, Idx, T> CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + AsPrimitive<usize>
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    fn new(c: &'a CartesianContigs<Idx, T>) -> CartesianContigsNeighbourhoodEnumerator<'a, Idx, T> {
+        let row_enumerator = c.0.neighbourhood_enumerator();
+        let mut result = CartesianContigsNeighbourhoodEnumerator {
+            row_enumerator,
+            row_nbh: None,
+            column_enumerators: None,
+        };
+
+        result.advance_row();
+
+        result
+    }
+
+    /// advance the row
+    fn advance_row(&mut self) {
+        self.row_nbh = self.row_enumerator.next();
+        self.column_enumerators = self.row_nbh.as_ref().map(|row_nbh| Neighbourhood {
+            i: row_nbh.i,
+            left: row_nbh.left.map(|oc| oc.neighbourhood_enumerator()),
+            this: row_nbh.this.neighbourhood_enumerator(),
+            right: row_nbh.right.map(|oc| oc.neighbourhood_enumerator()),
+        });
+    }
+
+    /// return next column if any
+    fn next_col(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
+        self.column_enumerators
+            .as_mut()
+            .and_then(|nbh| match nbh.this.next() {
+                Some(this) => {
+                    let i_this = this.i;
+                    Some(CartesianNeighbourhood {
+                        i: nbh.i,
+                        below: nbh.left.as_mut().and_then(|oc| oc.get(i_this)),
+                        this,
+                        above: nbh.right.as_mut().and_then(|oc| oc.get(i_this)),
+                    })
+                }
+                None => None,
+            })
+    }
+}
+
+impl<'a, Idx, T> Iterator for CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + AsPrimitive<usize>
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    type Item = CartesianNeighbourhood<Idx, &'a T>;
+
+    fn next(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
+        self.next_col().or_else(|| {
+            self.advance_row();
+            self.next_col()
+        })
+    }
 }
 
 mod tests;
