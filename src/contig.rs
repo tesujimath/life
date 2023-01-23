@@ -260,6 +260,15 @@ where
         }
     }
 
+    /// provide a reference to the indexed item, if any
+    fn get_in_left(&self, u: usize, i: Idx) -> Option<&T> {
+        if u > 0 {
+            self.contigs[u - 1].get(i)
+        } else {
+            None
+        }
+    }
+
     /// provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
         if let Ok(u) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
@@ -383,7 +392,10 @@ where
 
     /// return the neighbourhood for `i` or None,
     /// positioning the iterator after the returned item, which may be backwards
-    fn get(&mut self, i: Idx) -> Option<Neighbourhood<Idx, &'a T>> {
+    fn get(&mut self, i: Idx) -> (Option<&'a T>, Option<&'a T>, Option<&'a T>) {
+        let i_left = i - Idx::from_usize(1).unwrap();
+        let i_right = i + Idx::from_usize(1).unwrap();
+
         if i < self.next_i {
             (self.u_c, self.next_i) = self.oc.find(i);
         }
@@ -397,17 +409,20 @@ where
 
         if self.u_c < self.oc.contigs.len() {
             let c = &self.oc.contigs[self.u_c];
-            if c.contains(i) {
-                let nbh = c.get_neighbourhood(i);
-                self.next_i = i;
-                self.advance();
-                Some(nbh)
-            } else {
-                self.next_i = c.origin;
-                None
-            }
+            let item_this = c.get(i);
+            let item_left = match item_this {
+                Some(_) => c.get(i_left),
+                // this is the tricky case where we have to look in the contig to the left, if any:
+                None => c
+                    .get(i_left)
+                    .or_else(|| self.oc.get_in_left(self.u_c, i_left)),
+            };
+            let item_right = c.get(i_right);
+            (item_left, item_this, item_right)
         } else {
-            None
+            // again, we need to look in the contig to the left, if any
+            let item_left = self.oc.get_in_left(self.u_c, i_left);
+            (item_left, None, None)
         }
     }
 }
@@ -550,10 +565,10 @@ where
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct CartesianNeighbourhood<Idx, T> {
-    i: Idx,
-    below: Option<Neighbourhood<Idx, T>>,
+    i_row: Idx,
+    below: (Option<T>, Option<T>, Option<T>),
     this: Neighbourhood<Idx, T>,
-    above: Option<Neighbourhood<Idx, T>>,
+    above: (Option<T>, Option<T>, Option<T>),
 }
 
 pub struct CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
@@ -612,10 +627,16 @@ where
                 Some(this) => {
                     let i_this = this.i;
                     Some(CartesianNeighbourhood {
-                        i: nbh.i,
-                        below: nbh.left.as_mut().and_then(|oc| oc.get(i_this)),
+                        i_row: nbh.i,
+                        below: nbh
+                            .left
+                            .as_mut()
+                            .map_or((None, None, None), |oc| oc.get(i_this)),
                         this,
-                        above: nbh.right.as_mut().and_then(|oc| oc.get(i_this)),
+                        above: nbh
+                            .right
+                            .as_mut()
+                            .map_or((None, None, None), |oc| oc.get(i_this)),
                     })
                 }
                 None => None,

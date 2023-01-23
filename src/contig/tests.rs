@@ -191,33 +191,27 @@ fn test_ordered_contigs_enumerator() {
 
 #[test]
 fn test_ordered_contigs_enumerator_get() {
-    type Nbh<'a> = Neighbourhood<i32, &'a u8>;
-    type NbhTuple = (i32, Option<u8>, u8, Option<u8>);
-
-    fn unpack_neighbourhood(nbh: &Nbh) -> NbhTuple {
-        (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied())
-    }
-
-    fn get(e: &mut OrderedContigsNeighbourhoodEnumerator<i32, u8>, i: i32) -> Option<NbhTuple> {
-        e.get(i).as_ref().map(unpack_neighbourhood)
-    }
-
-    fn next(e: &mut OrderedContigsNeighbourhoodEnumerator<i32, u8>) -> Option<NbhTuple> {
-        e.next().as_ref().map(unpack_neighbourhood)
-    }
-
     let oc = OrderedContigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
 
+    let mut e0 = oc.neighbourhood_enumerator();
+    assert_eq!(e0.get(9), (None, None, Some(&10u8)));
+    assert_eq!(e0.get(10), (None, Some(&10u8), Some(&11u8)));
+    assert_eq!(e0.get(11), (Some(&10u8), Some(&11u8), None));
+    assert_eq!(e0.get(12), (Some(&11u8), None, Some(&13u8)));
+    assert_eq!(e0.get(13), (None, Some(&13u8), None));
+    assert_eq!(e0.get(14), (Some(&13u8), None, None));
+
     let mut e1 = oc.neighbourhood_enumerator_from(11);
-    assert_eq!(get(&mut e1, 11), Some((11, Some(10u8), 11u8, None)));
-    assert_eq!(get(&mut e1, 12), None);
-    assert_eq!(get(&mut e1, 13), Some((13, None, 13u8, None)));
+    assert_eq!(e1.get(10), (None, Some(&10u8), Some(&11u8)));
+    assert_eq!(e1.get(11), (Some(&10u8), Some(&11u8), None));
+    assert_eq!(e1.get(12), (Some(&11), None, Some(&13)));
+    assert_eq!(e1.get(13), (None, Some(&13u8), None));
 
     let mut e2 = oc.neighbourhood_enumerator_from(12);
-    assert_eq!(next(&mut e2), Some((13, None, 13u8, None)));
-    assert_eq!(next(&mut e2), None);
-    assert_eq!(get(&mut e2, 12), None);
-    assert_eq!(next(&mut e2), Some((13, None, 13u8, None)));
+    assert_eq!(e2.get(10), (None, Some(&10u8), Some(&11u8)));
+    assert_eq!(e2.get(11), (Some(&10u8), Some(&11u8), None));
+    assert_eq!(e2.get(12), (Some(&11), None, Some(&13)));
+    assert_eq!(e2.get(13), (None, Some(&13u8), None));
 }
 
 #[test]
@@ -250,19 +244,19 @@ fn test_cartesian_contigs_enumerator() {
         Option<u8>,
     )> {
         cc.neighbourhood_enumerator()
-            .map(|nbh| {
+            .map(|row| {
                 (
-                    nbh.this.i,
-                    nbh.i,
-                    None,
-                    None,
-                    None,
-                    None,
-                    *nbh.this.this,
-                    None,
-                    None,
-                    None,
-                    None,
+                    row.this.i,
+                    row.i_row,
+                    row.below.0.copied(),
+                    row.below.1.copied(),
+                    row.below.2.copied(),
+                    row.this.left.copied(),
+                    *row.this.this,
+                    row.this.right.copied(),
+                    row.above.0.copied(),
+                    row.above.1.copied(),
+                    row.above.2.copied(),
                 )
             })
             .collect::<Vec<(
@@ -288,10 +282,58 @@ fn test_cartesian_contigs_enumerator() {
     assert_eq!(
         enumerator_as_vec(&cc),
         vec![
-            (0, 0, None, None, None, None, 0, None, None, None, None,),
-            (1, 0, None, None, None, None, 1, None, None, None, None,),
-            (2, 0, None, None, None, None, 2, None, None, None, None,),
-            (1, 1, None, None, None, None, 11, None, None, None, None,),
+            (
+                0,
+                0,
+                None,
+                None,
+                None,
+                None,
+                0,
+                Some(1),
+                None,
+                None,
+                Some(11),
+            ),
+            (
+                1,
+                0,
+                None,
+                None,
+                None,
+                Some(0),
+                1,
+                Some(2),
+                None,
+                Some(11),
+                None,
+            ),
+            (
+                2,
+                0,
+                None,
+                None,
+                None,
+                Some(1),
+                2,
+                None,
+                Some(11),
+                None,
+                None,
+            ),
+            (
+                1,
+                1,
+                Some(0),
+                Some(1),
+                Some(2),
+                None,
+                11,
+                None,
+                None,
+                None,
+                None,
+            ),
         ]
     );
 }
