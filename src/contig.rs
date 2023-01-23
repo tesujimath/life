@@ -611,11 +611,19 @@ where
     /// advance the row
     fn advance_row(&mut self) {
         self.row_nbh = self.row_enumerator.next();
-        self.column_enumerators = self.row_nbh.as_ref().map(|row_nbh| Neighbourhood {
-            i: row_nbh.i,
-            left: row_nbh.left.map(|oc| oc.neighbourhood_enumerator()),
-            this: row_nbh.this.neighbourhood_enumerator(),
-            right: row_nbh.right.map(|oc| oc.neighbourhood_enumerator()),
+        self.column_enumerators = self.row_nbh.as_ref().map(|row_nbh| {
+            let row_origin = row_nbh.this.origin();
+
+            Neighbourhood {
+                i: row_nbh.i,
+                left: row_nbh
+                    .left
+                    .map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+                this: row_nbh.this.neighbourhood_enumerator(),
+                right: row_nbh
+                    .right
+                    .map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+            }
         });
     }
 
