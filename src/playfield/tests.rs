@@ -1,6 +1,5 @@
-use super::*;
 #[cfg(test)]
-use assert_hex::assert_eq_hex;
+use super::*;
 
 #[test]
 fn test_pairwise_or_default() {
@@ -74,6 +73,8 @@ fn test_bits_to_bytes() {
 
 #[test]
 fn test_pack_unpack_roundtrip() {
+    use assert_hex::assert_eq_hex;
+
     type P2 = Playfield<i32, u16>;
     type P4 = Playfield<i32, u32>;
 
@@ -94,6 +95,8 @@ fn test_pack_unpack_roundtrip() {
 
 #[test]
 fn test_to_from_bytes_roundtrip() {
+    use assert_hex::assert_eq_hex;
+
     let bytes0: Vec<Vec<u8>> = vec![vec![0x01, 0x02], vec![0x13, 0x14], vec![0x25, 0x26]];
     let origin0 = Coordinate { x: 0, y: 0 };
 
