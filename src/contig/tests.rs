@@ -191,7 +191,7 @@ fn test_ordered_contigs_enumerator() {
 
 #[test]
 fn test_ordered_contigs_enumerator_get() {
-    type Nbh<'a> = Neighbourhood<'a, i32, u8>;
+    type Nbh<'a> = Neighbourhood<i32, &'a u8>;
     type NbhTuple = (i32, Option<u8>, u8, Option<u8>);
 
     fn unpack_neighbourhood(nbh: &Nbh) -> NbhTuple {

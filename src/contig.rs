@@ -94,7 +94,7 @@ where
     }
 
     /// get the neighbourhood for `i`, which must be in range
-    fn get_neighbourhood(&self, i: Idx) -> Neighbourhood<Idx, T> {
+    fn get_neighbourhood(&self, i: Idx) -> Neighbourhood<Idx, &T> {
         let u = Idx::as_(i - self.origin);
         let left = if u > 0 {
             Some(&self.items[u - 1])
@@ -163,11 +163,11 @@ where
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct Neighbourhood<'a, Idx, T> {
+pub struct Neighbourhood<Idx, T> {
     i: Idx,
-    left: Option<&'a T>,
-    this: &'a T,
-    right: Option<&'a T>,
+    left: Option<T>,
+    this: T,
+    right: Option<T>,
 }
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
@@ -383,7 +383,7 @@ where
 
     /// return the neighbourhood for `i` or None,
     /// positioning the iterator after the returned item, which may be backwards
-    fn get(&mut self, i: Idx) -> Option<Neighbourhood<Idx, T>> {
+    fn get(&mut self, i: Idx) -> Option<Neighbourhood<Idx, &'a T>> {
         if i < self.next_i {
             (self.u_c, self.next_i) = self.oc.find(i);
         }
@@ -425,9 +425,9 @@ where
         + AddAssign
         + SubAssign,
 {
-    type Item = Neighbourhood<'a, Idx, T>;
+    type Item = Neighbourhood<Idx, &'a T>;
 
-    fn next(&mut self) -> Option<Neighbourhood<'a, Idx, T>> {
+    fn next(&mut self) -> Option<Neighbourhood<Idx, &'a T>> {
         if self.u_c < self.oc.contigs.len() {
             let nbh = self.oc.contigs[self.u_c].get_neighbourhood(self.next_i);
             self.advance();
