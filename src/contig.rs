@@ -166,17 +166,6 @@ pub struct Neighbourhood<Idx, T> {
     items: [Option<T>; 3],
 }
 
-impl<Idx, T> Neighbourhood<Idx, T> {
-    // TODO these _or_panic functions are ugly
-    fn this_or_panic(&self) -> &T {
-        self.items[1].as_ref().unwrap()
-    }
-
-    fn this_mut_or_panic(&mut self) -> &mut T {
-        self.items[1].as_mut().unwrap()
-    }
-}
-
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
 pub struct Contigs<Idx, T>
@@ -631,43 +620,58 @@ where
         result
     }
 
-    /// advance the row
+    /// advance to the next non-empty row, if any
     fn advance_row(&mut self) {
-        self.row_nbh = self.row_enumerator.next();
-        self.column_enumerators = self.row_nbh.as_mut().map(|row_nbh| {
-            let i_row = row_nbh.i;
-            let this = row_nbh.this_or_panic();
-            let row_origin = this.origin();
-
-            Neighbourhood {
-                i: i_row,
-                items: [
-                    row_nbh.items[0].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
-                    Some(this.neighbourhood_enumerator()),
-                    row_nbh.items[2].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
-                ],
+        loop {
+            self.row_nbh = self.row_enumerator.next();
+            match self.row_nbh {
+                Some(ref row_nbh) => {
+                    if row_nbh.items[1].is_some() {
+                        break;
+                    }
+                }
+                None => break,
             }
-        });
+        }
+        if let Some(ref mut row_nbh) = self.row_nbh {
+            self.column_enumerators = {
+                let i_row = row_nbh.i;
+                let this = row_nbh.items[1].unwrap();
+                let row_origin = this.origin();
+
+                Some(Neighbourhood {
+                    i: i_row,
+                    items: [
+                        row_nbh.items[0].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+                        Some(this.neighbourhood_enumerator()),
+                        row_nbh.items[2].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+                    ],
+                })
+            };
+        }
     }
 
     /// return next column if any
     fn next_col(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
         self.column_enumerators
             .as_mut()
-            .and_then(|rows| match rows.this_mut_or_panic().next() {
-                Some(this) => {
-                    let i_col = this.i;
-                    let absent: [Option<&'a T>; 3] = [None, None, None];
-                    Some(CartesianNeighbourhood {
-                        i_row: rows.i,
-                        i_col,
-                        items: [
-                            rows.items[0].as_mut().map_or(absent, |oc| oc.get(i_col)),
-                            this.items,
-                            rows.items[2].as_mut().map_or(absent, |oc| oc.get(i_col)),
-                        ],
-                    })
-                }
+            .and_then(|rows| match &mut rows.items[1] {
+                Some(ref mut this_enumerator) => match this_enumerator.next() {
+                    Some(this) => {
+                        let i_col = this.i;
+                        let absent: [Option<&'a T>; 3] = [None, None, None];
+                        Some(CartesianNeighbourhood {
+                            i_row: rows.i,
+                            i_col,
+                            items: [
+                                rows.items[0].as_mut().map_or(absent, |oc| oc.get(i_col)),
+                                this.items,
+                                rows.items[2].as_mut().map_or(absent, |oc| oc.get(i_col)),
+                            ],
+                        })
+                    }
+                    None => None,
+                },
                 None => None,
             })
     }
