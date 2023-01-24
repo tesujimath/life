@@ -172,14 +172,14 @@ pub struct Neighbourhood<Idx, T> {
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
-pub struct OrderedContigs<Idx, T>
+pub struct Contigs<Idx, T>
 where
     Idx: Copy,
 {
     contigs: VecDeque<Contig<Idx, T>>,
 }
 
-enum OrderedContigsUpdate {
+enum ContigsUpdate {
     Set(usize),
     PushFront(usize),
     PushFrontAndCoelesce(usize),
@@ -187,7 +187,7 @@ enum OrderedContigsUpdate {
     Insert(usize),
 }
 
-impl<Idx, T> OrderedContigs<Idx, T>
+impl<Idx, T> Contigs<Idx, T>
 where
     Idx: Copy
         + One
@@ -200,14 +200,14 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(i: Idx, item: T) -> OrderedContigs<Idx, T> {
+    fn new(i: Idx, item: T) -> Contigs<Idx, T> {
         let c = Contig::new(i, item);
         let mut contigs = VecDeque::new();
         contigs.push_front(c);
-        OrderedContigs { contigs }
+        Contigs { contigs }
     }
 
-    fn from<I>(into_it: I) -> Option<OrderedContigs<Idx, T>>
+    fn from<I>(into_it: I) -> Option<Contigs<Idx, T>>
     where
         I: IntoIterator<Item = (Idx, T)>,
     {
@@ -215,7 +215,7 @@ where
 
         match it.by_ref().next() {
             Some((i, item)) => {
-                let oc0 = OrderedContigs::new(i, item);
+                let oc0 = Contigs::new(i, item);
                 Some(it.fold(oc0, |mut oc, (i, item)| {
                     oc.set(i, item);
                     oc
@@ -229,8 +229,8 @@ where
         self.contigs[0].origin
     }
 
-    fn determine_update(&self, i: Idx) -> OrderedContigsUpdate {
-        use OrderedContigsUpdate::*;
+    fn determine_update(&self, i: Idx) -> ContigsUpdate {
+        use ContigsUpdate::*;
 
         match self.contigs.binary_search_by(|c| c.cmp(&i)) {
             Ok(u) => Set(u),
@@ -288,7 +288,7 @@ where
     }
 
     fn set(&mut self, i: Idx, item: T) {
-        use OrderedContigsUpdate::*;
+        use ContigsUpdate::*;
 
         match self.determine_update(i) {
             Set(u) => self.contigs[u][i] = item,
@@ -312,14 +312,14 @@ where
         }
     }
 
-    pub fn enumerator(&self) -> OrderedContigsEnumerator<Idx, T> {
-        OrderedContigsEnumerator::new(self)
+    pub fn enumerator(&self) -> ContigsEnumerator<Idx, T> {
+        ContigsEnumerator::new(self)
     }
 
-    pub fn neighbourhood_enumerator(&self) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+    pub fn neighbourhood_enumerator(&self) -> ContigsNeighbourhoodEnumerator<Idx, T> {
         let next_i = self.contigs[0].origin;
 
-        OrderedContigsNeighbourhoodEnumerator::new(self, 0, next_i)
+        ContigsNeighbourhoodEnumerator::new(self, 0, next_i)
     }
 
     fn find(&self, i: Idx) -> (usize, Idx) {
@@ -335,26 +335,23 @@ where
         }
     }
 
-    pub fn neighbourhood_enumerator_from(
-        &self,
-        i: Idx,
-    ) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
+    pub fn neighbourhood_enumerator_from(&self, i: Idx) -> ContigsNeighbourhoodEnumerator<Idx, T> {
         let (next_u, next_i) = self.find(i);
 
-        OrderedContigsNeighbourhoodEnumerator::new(self, next_u, next_i)
+        ContigsNeighbourhoodEnumerator::new(self, next_u, next_i)
     }
 }
 
-pub struct OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+pub struct ContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy,
 {
-    oc: &'a OrderedContigs<Idx, T>,
+    oc: &'a Contigs<Idx, T>,
     u_c: usize,
     next_i: Idx,
 }
 
-impl<'a, Idx, T> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+impl<'a, Idx, T> ContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -368,11 +365,11 @@ where
         + SubAssign,
 {
     fn new(
-        oc: &'a OrderedContigs<Idx, T>,
+        oc: &'a Contigs<Idx, T>,
         u_c: usize,
         next_i: Idx,
-    ) -> OrderedContigsNeighbourhoodEnumerator<'a, Idx, T> {
-        OrderedContigsNeighbourhoodEnumerator { oc, u_c, next_i }
+    ) -> ContigsNeighbourhoodEnumerator<'a, Idx, T> {
+        ContigsNeighbourhoodEnumerator { oc, u_c, next_i }
     }
 
     /// advance the enumerator
@@ -423,7 +420,7 @@ where
     }
 }
 
-impl<'a, Idx, T> Iterator for OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>
+impl<'a, Idx, T> Iterator for ContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -450,11 +447,11 @@ where
 }
 
 /// simple enumerator without the neighbourhood
-pub struct OrderedContigsEnumerator<'a, Idx, T>(OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>)
+pub struct ContigsEnumerator<'a, Idx, T>(ContigsNeighbourhoodEnumerator<'a, Idx, T>)
 where
     Idx: Copy;
 
-impl<'a, Idx, T> OrderedContigsEnumerator<'a, Idx, T>
+impl<'a, Idx, T> ContigsEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -467,12 +464,12 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(oc: &'a OrderedContigs<Idx, T>) -> OrderedContigsEnumerator<'a, Idx, T> {
-        OrderedContigsEnumerator(oc.neighbourhood_enumerator())
+    fn new(oc: &'a Contigs<Idx, T>) -> ContigsEnumerator<'a, Idx, T> {
+        ContigsEnumerator(oc.neighbourhood_enumerator())
     }
 }
 
-impl<'a, Idx, T> Iterator for OrderedContigsEnumerator<'a, Idx, T>
+impl<'a, Idx, T> Iterator for ContigsEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -503,7 +500,7 @@ where
 
 /// nonempty 2D array of Contigs, organised in rows, or None
 #[derive(Debug)]
-pub struct CartesianContigs<Idx, T>(OrderedContigs<Idx, OrderedContigs<Idx, T>>)
+pub struct CartesianContigs<Idx, T>(Contigs<Idx, Contigs<Idx, T>>)
 where
     Idx: Copy;
 
@@ -523,7 +520,7 @@ where
 {
     /// create almost empty, with a single cell
     pub fn new(x: Idx, y: Idx, item: T) -> CartesianContigs<Idx, T> {
-        CartesianContigs(OrderedContigs::new(y, OrderedContigs::new(x, item)))
+        CartesianContigs(Contigs::new(y, Contigs::new(x, item)))
     }
 
     pub fn get(&self, x: Idx, y: Idx) -> Option<&T> {
@@ -533,7 +530,7 @@ where
     pub fn set(&mut self, x: Idx, y: Idx, item: T) {
         match self.0.get_mut(y) {
             Some(row) => row.set(x, item),
-            None => self.0.set(y, OrderedContigs::new(x, item)),
+            None => self.0.set(y, Contigs::new(x, item)),
         }
     }
 
@@ -550,7 +547,7 @@ where
         }
     }
 
-    pub fn rows_enumerator(&self) -> OrderedContigsEnumerator<Idx, OrderedContigs<Idx, T>> {
+    pub fn rows_enumerator(&self) -> ContigsEnumerator<Idx, Contigs<Idx, T>> {
         self.0.enumerator()
     }
 
@@ -571,11 +568,10 @@ pub struct CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy,
 {
-    row_enumerator: OrderedContigsNeighbourhoodEnumerator<'a, Idx, OrderedContigs<Idx, T>>,
-    row_nbh: Option<Neighbourhood<Idx, &'a OrderedContigs<Idx, T>>>,
+    row_enumerator: ContigsNeighbourhoodEnumerator<'a, Idx, Contigs<Idx, T>>,
+    row_nbh: Option<Neighbourhood<Idx, &'a Contigs<Idx, T>>>,
 
-    column_enumerators:
-        Option<Neighbourhood<Idx, OrderedContigsNeighbourhoodEnumerator<'a, Idx, T>>>,
+    column_enumerators: Option<Neighbourhood<Idx, ContigsNeighbourhoodEnumerator<'a, Idx, T>>>,
 }
 
 impl<'a, Idx, T> CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>

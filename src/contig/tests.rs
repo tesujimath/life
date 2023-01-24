@@ -88,11 +88,11 @@ fn test_contigs_binary_search() {
 }
 
 #[test]
-fn test_ordered_contigs_set() {
-    let oc = &mut OrderedContigs::new(10, 10u8);
+fn test_contigs_set() {
+    let oc = &mut Contigs::new(10, 10u8);
     assert_eq!(
         *oc,
-        OrderedContigs {
+        Contigs {
             contigs: VecDeque::from(vec![Contig {
                 origin: 10,
                 items: VecDeque::from(vec![10u8])
@@ -103,7 +103,7 @@ fn test_ordered_contigs_set() {
     oc.set(11, 11u8);
     assert_eq!(
         *oc,
-        OrderedContigs {
+        Contigs {
             contigs: VecDeque::from(vec![Contig {
                 origin: 10,
                 items: VecDeque::from(vec![10u8, 11u8])
@@ -114,7 +114,7 @@ fn test_ordered_contigs_set() {
     oc.set(9, 9u8);
     assert_eq!(
         *oc,
-        OrderedContigs {
+        Contigs {
             contigs: VecDeque::from(vec![Contig {
                 origin: 9,
                 items: VecDeque::from(vec![9u8, 10u8, 11u8])
@@ -125,7 +125,7 @@ fn test_ordered_contigs_set() {
     oc.set(7, 7u8);
     assert_eq!(
         *oc,
-        OrderedContigs {
+        Contigs {
             contigs: VecDeque::from(vec![
                 Contig {
                     origin: 7,
@@ -142,7 +142,7 @@ fn test_ordered_contigs_set() {
     oc.set(8, 8u8);
     assert_eq!(
         *oc,
-        OrderedContigs {
+        Contigs {
             contigs: VecDeque::from(vec![Contig {
                 origin: 7,
                 items: VecDeque::from(vec![7u8, 8u8, 9u8, 10u8, 11u8])
@@ -152,8 +152,8 @@ fn test_ordered_contigs_set() {
 }
 
 #[test]
-fn test_ordered_contigs_get() {
-    let oc = &mut OrderedContigs::new(10, 10u8);
+fn test_contigs_get() {
+    let oc = &mut Contigs::new(10, 10u8);
 
     oc.set(11, 11u8);
     oc.set(13, 13u8);
@@ -167,14 +167,14 @@ fn test_ordered_contigs_get() {
 }
 
 #[test]
-fn test_ordered_contigs_enumerator() {
-    fn enumerator_as_vec(oc: &OrderedContigs<i32, u8>) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
+fn test_contigs_enumerator() {
+    fn enumerator_as_vec(oc: &Contigs<i32, u8>) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
         oc.neighbourhood_enumerator()
             .map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
             .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
     }
 
-    let oc = &mut OrderedContigs::new(10, 10u8);
+    let oc = &mut Contigs::new(10, 10u8);
 
     oc.set(11, 11u8);
     oc.set(13, 13u8);
@@ -190,8 +190,8 @@ fn test_ordered_contigs_enumerator() {
 }
 
 #[test]
-fn test_ordered_contigs_enumerator_get() {
-    let oc = OrderedContigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
+fn test_contigs_enumerator_get() {
+    let oc = Contigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
 
     let mut e0 = oc.neighbourhood_enumerator();
     assert_eq!(e0.get(9), (None, None, Some(&10u8)));
