@@ -1,6 +1,7 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
+use super::seekable::SeekableIterator;
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
@@ -432,6 +433,43 @@ where
             Some(nbh)
         } else {
             None
+        }
+    }
+}
+
+impl<'a, Idx, T> SeekableIterator<Idx, Neighbourhood<Idx, &'a T>>
+    for ContigNeighbourhoodEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + AsPrimitive<usize>
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    fn seek(&mut self, i: Idx) {
+        // look in current and adjacent spans before falling back to find
+        if self.u_next < self.c.spans.len() {
+            let s = &self.c.spans[self.u_next];
+            if s.contains(i) {
+                self.i_next = i;
+            } else if self.u_next + 1 < self.c.spans.len()
+                && self.c.spans[self.u_next + 1].contains(i)
+            {
+                self.u_next += 1;
+                self.i_next = i;
+            } else if self.u_next > 0 && self.c.spans[self.u_next - 1].contains(i) {
+                self.u_next -= 1;
+                self.i_next = i;
+            } else {
+                (self.u_next, self.i_next) = self.c.find(i);
+            }
+        } else {
+            (self.u_next, self.i_next) = self.c.find(i);
         }
     }
 }

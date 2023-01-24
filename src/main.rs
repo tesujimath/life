@@ -4,3 +4,4 @@ fn main() {
 
 mod contig;
 mod playfield;
+mod seekable;

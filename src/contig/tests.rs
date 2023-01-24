@@ -166,6 +166,7 @@ fn test_contig_get() {
     assert_eq!(c.get(14), None);
 }
 
+#[test]
 fn test_contig_find() {
     let c = Contig::from(vec![
         (10, 10u8),
@@ -219,6 +220,65 @@ fn test_contig_neighbourhood_enumerator() {
             },
         ]
     );
+}
+
+#[test]
+fn test_contig_neighbourhood_enumerator_seek() {
+    let c = Contig::from(vec![
+        (10, 10u8),
+        (11, 11u8),
+        (13, 13u8),
+        (14, 114u8),
+        (20, 120u8),
+        (30, 130u8),
+    ])
+    .unwrap();
+    let mut e = c.neighbourhood_enumerator();
+
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&10)));
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+
+    e.seek(10);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&10)));
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+
+    e.seek(-1);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&10)));
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+
+    e.seek(11);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&13)));
+
+    e.seek(12);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&13)));
+
+    e.seek(11);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+
+    e.seek(19);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&120)));
+
+    e.seek(20);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&120)));
+
+    e.seek(21);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&130)));
+
+    e.seek(30);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&130)));
+
+    e.seek(31);
+    assert_eq!(e.next().map(|n| n.items[1]), None);
+
+    e.seek(31);
+    assert_eq!(e.next().map(|n| n.items[1]), None);
+
+    e.seek(100);
+    assert_eq!(e.next().map(|n| n.items[1]), None);
+
+    e.seek(12);
+    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&13)));
 }
 
 #[test]
