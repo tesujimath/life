@@ -194,24 +194,24 @@ fn test_contigs_enumerator_get() {
     let oc = Contigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
 
     let mut e0 = oc.neighbourhood_enumerator();
-    assert_eq!(e0.get(9), (None, None, Some(&10u8)));
-    assert_eq!(e0.get(10), (None, Some(&10u8), Some(&11u8)));
-    assert_eq!(e0.get(11), (Some(&10u8), Some(&11u8), None));
-    assert_eq!(e0.get(12), (Some(&11u8), None, Some(&13u8)));
-    assert_eq!(e0.get(13), (None, Some(&13u8), None));
-    assert_eq!(e0.get(14), (Some(&13u8), None, None));
+    assert_eq!(e0.get(9), [None, None, Some(&10u8)]);
+    assert_eq!(e0.get(10), [None, Some(&10u8), Some(&11u8)]);
+    assert_eq!(e0.get(11), [Some(&10u8), Some(&11u8), None]);
+    assert_eq!(e0.get(12), [Some(&11u8), None, Some(&13u8)]);
+    assert_eq!(e0.get(13), [None, Some(&13u8), None]);
+    assert_eq!(e0.get(14), [Some(&13u8), None, None]);
 
     let mut e1 = oc.neighbourhood_enumerator_from(11);
-    assert_eq!(e1.get(10), (None, Some(&10u8), Some(&11u8)));
-    assert_eq!(e1.get(11), (Some(&10u8), Some(&11u8), None));
-    assert_eq!(e1.get(12), (Some(&11), None, Some(&13)));
-    assert_eq!(e1.get(13), (None, Some(&13u8), None));
+    assert_eq!(e1.get(10), [None, Some(&10u8), Some(&11u8)]);
+    assert_eq!(e1.get(11), [Some(&10u8), Some(&11u8), None]);
+    assert_eq!(e1.get(12), [Some(&11), None, Some(&13)]);
+    assert_eq!(e1.get(13), [None, Some(&13u8), None]);
 
     let mut e2 = oc.neighbourhood_enumerator_from(12);
-    assert_eq!(e2.get(10), (None, Some(&10u8), Some(&11u8)));
-    assert_eq!(e2.get(11), (Some(&10u8), Some(&11u8), None));
-    assert_eq!(e2.get(12), (Some(&11), None, Some(&13)));
-    assert_eq!(e2.get(13), (None, Some(&13u8), None));
+    assert_eq!(e2.get(10), [None, Some(&10u8), Some(&11u8)]);
+    assert_eq!(e2.get(11), [Some(&10u8), Some(&11u8), None]);
+    assert_eq!(e2.get(12), [Some(&11), None, Some(&13)]);
+    assert_eq!(e2.get(13), [None, Some(&13u8), None]);
 }
 
 #[test]
@@ -228,50 +228,8 @@ fn test_cartesian_contigs_set() {
 
 #[test]
 fn test_cartesian_contigs_enumerator() {
-    fn enumerator_as_vec(
-        cc: &CartesianContigs<i32, u8>,
-    ) -> Vec<(
-        i32,
-        i32,
-        Option<u8>,
-        Option<u8>,
-        Option<u8>,
-        Option<u8>,
-        u8,
-        Option<u8>,
-        Option<u8>,
-        Option<u8>,
-        Option<u8>,
-    )> {
-        cc.neighbourhood_enumerator()
-            .map(|row| {
-                (
-                    row.this.i,
-                    row.i_row,
-                    row.below.0.copied(),
-                    row.below.1.copied(),
-                    row.below.2.copied(),
-                    row.this.left.copied(),
-                    *row.this.this,
-                    row.this.right.copied(),
-                    row.above.0.copied(),
-                    row.above.1.copied(),
-                    row.above.2.copied(),
-                )
-            })
-            .collect::<Vec<(
-                i32,
-                i32,
-                Option<u8>,
-                Option<u8>,
-                Option<u8>,
-                Option<u8>,
-                u8,
-                Option<u8>,
-                Option<u8>,
-                Option<u8>,
-                Option<u8>,
-            )>>()
+    fn enumerator_as_vec(cc: &CartesianContigs<i32, u8>) -> Vec<CartesianNeighbourhood<i32, &u8>> {
+        cc.neighbourhood_enumerator().collect()
     }
 
     let mut cc = CartesianContigs::new(0, 0, 0u8);
@@ -282,58 +240,42 @@ fn test_cartesian_contigs_enumerator() {
     assert_eq!(
         enumerator_as_vec(&cc),
         vec![
-            (
-                0,
-                0,
-                None,
-                None,
-                None,
-                None,
-                0,
-                Some(1),
-                None,
-                None,
-                Some(11),
-            ),
-            (
-                1,
-                0,
-                None,
-                None,
-                None,
-                Some(0),
-                1,
-                Some(2),
-                None,
-                Some(11),
-                None,
-            ),
-            (
-                2,
-                0,
-                None,
-                None,
-                None,
-                Some(1),
-                2,
-                None,
-                Some(11),
-                None,
-                None,
-            ),
-            (
-                1,
-                1,
-                Some(0),
-                Some(1),
-                Some(2),
-                None,
-                11,
-                None,
-                None,
-                None,
-                None,
-            ),
+            CartesianNeighbourhood {
+                i_row: 0,
+                i_col: 0,
+                items: [
+                    [None, None, None],
+                    [None, Some(&0), Some(&1)],
+                    [None, None, Some(&11)]
+                ]
+            },
+            CartesianNeighbourhood {
+                i_row: 0,
+                i_col: 1,
+                items: [
+                    [None, None, None],
+                    [Some(&0), Some(&1), Some(&2)],
+                    [None, Some(&11), None]
+                ]
+            },
+            CartesianNeighbourhood {
+                i_row: 0,
+                i_col: 2,
+                items: [
+                    [None, None, None],
+                    [Some(&1), Some(&2), None],
+                    [Some(&11), None, None]
+                ]
+            },
+            CartesianNeighbourhood {
+                i_row: 1,
+                i_col: 1,
+                items: [
+                    [Some(&0), Some(&1), Some(&2)],
+                    [None, Some(&11), None],
+                    [None, None, None]
+                ]
+            },
         ]
     );
 }

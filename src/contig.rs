@@ -385,9 +385,9 @@ where
         }
     }
 
-    /// return the neighbourhood for `i` or None,
+    /// return the neighbourhood for `i`,
     /// positioning the iterator after the returned item, which may be backwards
-    fn get(&mut self, i: Idx) -> (Option<&'a T>, Option<&'a T>, Option<&'a T>) {
+    fn get(&mut self, i: Idx) -> [Option<&'a T>; 3] {
         let i_left = i - Idx::from_usize(1).unwrap();
         let i_right = i + Idx::from_usize(1).unwrap();
 
@@ -413,11 +413,11 @@ where
                     .or_else(|| self.oc.get_in_left(self.u_c, i_left)),
             };
             let item_right = c.get(i_right);
-            (item_left, item_this, item_right)
+            [item_left, item_this, item_right]
         } else {
             // again, we need to look in the contig to the left, if any
             let item_left = self.oc.get_in_left(self.u_c, i_left);
-            (item_left, None, None)
+            [item_left, None, None]
         }
     }
 }
@@ -584,9 +584,8 @@ where
 #[derive(Eq, PartialEq, Debug)]
 pub struct CartesianNeighbourhood<Idx, T> {
     i_row: Idx,
-    below: (Option<T>, Option<T>, Option<T>),
-    this: Neighbourhood<Idx, T>,
-    above: (Option<T>, Option<T>, Option<T>),
+    i_col: Idx,
+    items: [[Option<T>; 3]; 3], // first index is row
 }
 
 pub struct CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
@@ -648,20 +647,18 @@ where
     fn next_col(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
         self.column_enumerators
             .as_mut()
-            .and_then(|nbh| match nbh.this.next() {
+            .and_then(|rows| match rows.this.next() {
                 Some(this) => {
-                    let i_this = this.i;
+                    let i_col = this.i;
+                    let absent: [Option<&'a T>; 3] = [None, None, None];
                     Some(CartesianNeighbourhood {
-                        i_row: nbh.i,
-                        below: nbh
-                            .left
-                            .as_mut()
-                            .map_or((None, None, None), |oc| oc.get(i_this)),
-                        this,
-                        above: nbh
-                            .right
-                            .as_mut()
-                            .map_or((None, None, None), |oc| oc.get(i_this)),
+                        i_row: rows.i,
+                        i_col,
+                        items: [
+                            rows.left.as_mut().map_or(absent, |oc| oc.get(i_col)),
+                            [this.left, Some(this.this), this.right],
+                            rows.right.as_mut().map_or(absent, |oc| oc.get(i_col)),
+                        ],
                     })
                 }
                 None => None,
