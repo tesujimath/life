@@ -313,7 +313,9 @@ where
     }
 
     pub fn enumerator(&self) -> ContigsEnumerator<Idx, T> {
-        ContigsEnumerator::new(self)
+        let next_i = self.contigs[0].origin;
+
+        ContigsEnumerator::new(self, 0, next_i)
     }
 
     pub fn neighbourhood_enumerator(&self) -> ContigsNeighbourhoodEnumerator<Idx, T> {
@@ -447,9 +449,14 @@ where
 }
 
 /// simple enumerator without the neighbourhood
-pub struct ContigsEnumerator<'a, Idx, T>(ContigsNeighbourhoodEnumerator<'a, Idx, T>)
+pub struct ContigsEnumerator<'a, Idx, T>
 where
-    Idx: Copy;
+    Idx: Copy,
+{
+    oc: &'a Contigs<Idx, T>,
+    u_c: usize,
+    next_i: Idx,
+}
 
 impl<'a, Idx, T> ContigsEnumerator<'a, Idx, T>
 where
@@ -464,8 +471,19 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(oc: &'a Contigs<Idx, T>) -> ContigsEnumerator<'a, Idx, T> {
-        ContigsEnumerator(oc.neighbourhood_enumerator())
+    fn new(oc: &'a Contigs<Idx, T>, u_c: usize, next_i: Idx) -> ContigsEnumerator<'a, Idx, T> {
+        ContigsEnumerator { oc, u_c, next_i }
+    }
+
+    /// advance the enumerator
+    fn advance(&mut self) {
+        self.next_i += Idx::one();
+        if !self.oc.contigs[self.u_c].contains(self.next_i) {
+            self.u_c += 1;
+            if self.u_c < self.oc.contigs.len() {
+                self.next_i = self.oc.contigs[self.u_c].origin;
+            }
+        }
     }
 }
 
@@ -485,7 +503,14 @@ where
     type Item = (Idx, &'a T);
 
     fn next(&mut self) -> Option<(Idx, &'a T)> {
-        self.0.next().map(|ref nbh| (nbh.i, nbh.this))
+        if self.u_c < self.oc.contigs.len() {
+            let i = self.next_i;
+            let item = &self.oc.contigs[self.u_c][i];
+            self.advance();
+            Some((i, item))
+        } else {
+            None
+        }
     }
 }
 
