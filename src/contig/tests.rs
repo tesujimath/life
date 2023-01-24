@@ -153,7 +153,7 @@ fn test_contig_set() {
 
 #[test]
 fn test_contig_get() {
-    let c = &mut Contig::new(10, 10u8);
+    let mut c = Contig::new(10, 10u8);
 
     c.set(11, 11u8);
     c.set(13, 13u8);
@@ -166,6 +166,29 @@ fn test_contig_get() {
     assert_eq!(c.get(14), None);
 }
 
+fn test_contig_find() {
+    let c = Contig::from(vec![
+        (10, 10u8),
+        (11, 11u8),
+        (13, 13u8),
+        (14, 14u8),
+        (20, 20u8),
+    ])
+    .unwrap();
+
+    assert_eq!(c.find(-1), (0, 10));
+    assert_eq!(c.find(9), (0, 10));
+    assert_eq!(c.find(10), (0, 10));
+    assert_eq!(c.find(11), (0, 11));
+    assert_eq!(c.find(12), (1, 13));
+    assert_eq!(c.find(13), (1, 13));
+    assert_eq!(c.find(14), (1, 14));
+    assert_eq!(c.find(15), (2, 20));
+    assert_eq!(c.find(20), (2, 20));
+    assert_eq!(c.find(21), (3, 21));
+    assert_eq!(c.find(100), (3, 100));
+}
+
 #[test]
 fn test_contig_neighbourhood_enumerator() {
     fn enumerator_as_vec(c: &Contig<i32, u8>) -> Vec<Neighbourhood<i32, &u8>> {
@@ -174,13 +197,13 @@ fn test_contig_neighbourhood_enumerator() {
             .collect()
     }
 
-    let c = &mut Contig::new(10, 10u8);
+    let mut c = Contig::new(10, 10u8);
 
     c.set(11, 11u8);
     c.set(13, 13u8);
 
     assert_eq!(
-        enumerator_as_vec(c),
+        enumerator_as_vec(&c),
         vec![
             Neighbourhood {
                 i: 10,
@@ -202,25 +225,13 @@ fn test_contig_neighbourhood_enumerator() {
 fn test_contig_neighbourhood_enumerator_get() {
     let c = Contig::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
 
-    let mut e0 = c.neighbourhood_enumerator();
-    assert_eq!(e0.get(9), [None, None, Some(&10u8)]);
-    assert_eq!(e0.get(10), [None, Some(&10u8), Some(&11u8)]);
-    assert_eq!(e0.get(11), [Some(&10u8), Some(&11u8), None]);
-    assert_eq!(e0.get(12), [Some(&11u8), None, Some(&13u8)]);
-    assert_eq!(e0.get(13), [None, Some(&13u8), None]);
-    assert_eq!(e0.get(14), [Some(&13u8), None, None]);
-
-    let mut e1 = c.neighbourhood_enumerator_from(11);
-    assert_eq!(e1.get(10), [None, Some(&10u8), Some(&11u8)]);
-    assert_eq!(e1.get(11), [Some(&10u8), Some(&11u8), None]);
-    assert_eq!(e1.get(12), [Some(&11), None, Some(&13)]);
-    assert_eq!(e1.get(13), [None, Some(&13u8), None]);
-
-    let mut e2 = c.neighbourhood_enumerator_from(12);
-    assert_eq!(e2.get(10), [None, Some(&10u8), Some(&11u8)]);
-    assert_eq!(e2.get(11), [Some(&10u8), Some(&11u8), None]);
-    assert_eq!(e2.get(12), [Some(&11), None, Some(&13)]);
-    assert_eq!(e2.get(13), [None, Some(&13u8), None]);
+    let mut e = c.neighbourhood_enumerator();
+    assert_eq!(e.get(9), [None, None, Some(&10u8)]);
+    assert_eq!(e.get(10), [None, Some(&10u8), Some(&11u8)]);
+    assert_eq!(e.get(11), [Some(&10u8), Some(&11u8), None]);
+    assert_eq!(e.get(12), [Some(&11u8), None, Some(&13u8)]);
+    assert_eq!(e.get(13), [None, Some(&13u8), None]);
+    assert_eq!(e.get(14), [Some(&13u8), None, None]);
 }
 
 #[test]

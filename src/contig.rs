@@ -315,11 +315,10 @@ where
     }
 
     pub fn neighbourhood_enumerator(&self) -> ContigNeighbourhoodEnumerator<Idx, T> {
-        let next_i = self.spans[0].origin;
-
-        ContigNeighbourhoodEnumerator::new(self, 0, next_i)
+        ContigNeighbourhoodEnumerator::new(self)
     }
 
+    /// find the first item at or past the given index
     fn find(&self, i: Idx) -> (usize, Idx) {
         match self.spans.binary_search_by(|c| c.cmp(&i)) {
             Ok(u) => (u, i),
@@ -331,12 +330,6 @@ where
                 }
             }
         }
-    }
-
-    pub fn neighbourhood_enumerator_from(&self, i: Idx) -> ContigNeighbourhoodEnumerator<Idx, T> {
-        let (next_u, next_i) = self.find(i);
-
-        ContigNeighbourhoodEnumerator::new(self, next_u, next_i)
     }
 }
 
@@ -362,11 +355,10 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(
-        c: &'a Contig<Idx, T>,
-        u_next: usize,
-        i_next: Idx,
-    ) -> ContigNeighbourhoodEnumerator<'a, Idx, T> {
+    fn new(c: &'a Contig<Idx, T>) -> ContigNeighbourhoodEnumerator<'a, Idx, T> {
+        let u_next = 0;
+        let i_next = c.spans[u_next].origin;
+
         ContigNeighbourhoodEnumerator { c, u_next, i_next }
     }
 
