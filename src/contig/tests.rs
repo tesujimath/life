@@ -2,7 +2,7 @@
 use super::*;
 
 #[test]
-fn test_span_ord2() {
+fn test_span_cmp() {
     assert_eq!(
         Span {
             origin: 1,
@@ -167,7 +167,7 @@ fn test_contig_get() {
 }
 
 #[test]
-fn test_contig_find() {
+fn test_contig_find_with_adjacent() {
     let c = Contig::from(vec![
         (10, 10u8),
         (11, 11u8),
@@ -177,17 +177,18 @@ fn test_contig_find() {
     ])
     .unwrap();
 
-    assert_eq!(c.find(-1), (0, 10));
-    assert_eq!(c.find(9), (0, 10));
-    assert_eq!(c.find(10), (0, 10));
-    assert_eq!(c.find(11), (0, 11));
-    assert_eq!(c.find(12), (1, 13));
-    assert_eq!(c.find(13), (1, 13));
-    assert_eq!(c.find(14), (1, 14));
-    assert_eq!(c.find(15), (2, 20));
-    assert_eq!(c.find(20), (2, 20));
-    assert_eq!(c.find(21), (3, 21));
-    assert_eq!(c.find(100), (3, 100));
+    assert_eq!(c.find_with_adjacent(-1), (0, 9));
+    assert_eq!(c.find_with_adjacent(9), (0, 9));
+    assert_eq!(c.find_with_adjacent(10), (0, 10));
+    assert_eq!(c.find_with_adjacent(11), (0, 11));
+    assert_eq!(c.find_with_adjacent(12), (1, 12));
+    assert_eq!(c.find_with_adjacent(13), (1, 13));
+    assert_eq!(c.find_with_adjacent(14), (1, 14));
+    assert_eq!(c.find_with_adjacent(15), (1, 15));
+    assert_eq!(c.find_with_adjacent(16), (2, 19));
+    assert_eq!(c.find_with_adjacent(20), (2, 20));
+    assert_eq!(c.find_with_adjacent(21), (2, 21));
+    assert_eq!(c.find_with_adjacent(100), (3, 100));
 }
 
 #[test]
@@ -198,25 +199,50 @@ fn test_contig_neighbourhood_enumerator() {
             .collect()
     }
 
-    let mut c = Contig::new(10, 10u8);
-
-    c.set(11, 11u8);
-    c.set(13, 13u8);
+    let c = Contig::from(vec![(10, 10), (11, 11), (13, 13), (14, 14), (20, 20)]).unwrap();
 
     assert_eq!(
         enumerator_as_vec(&c),
         vec![
             Neighbourhood {
+                i: 9,
+                items: [None, None, Some(&10)]
+            },
+            Neighbourhood {
                 i: 10,
-                items: [None, Some(&10u8), Some(&11u8)]
+                items: [None, Some(&10), Some(&11)]
             },
             Neighbourhood {
                 i: 11,
-                items: [Some(&10u8), Some(&11u8), None]
+                items: [Some(&10), Some(&11), None]
+            },
+            Neighbourhood {
+                i: 12,
+                items: [Some(&11), None, Some(&13)]
             },
             Neighbourhood {
                 i: 13,
-                items: [None, Some(&13u8), None]
+                items: [None, Some(&13), Some(&14)]
+            },
+            Neighbourhood {
+                i: 14,
+                items: [Some(&13), Some(&14), None]
+            },
+            Neighbourhood {
+                i: 15,
+                items: [Some(&14), None, None]
+            },
+            Neighbourhood {
+                i: 19,
+                items: [None, None, Some(&20)]
+            },
+            Neighbourhood {
+                i: 20,
+                items: [None, Some(&20), None]
+            },
+            Neighbourhood {
+                i: 21,
+                items: [Some(&20), None, None]
             },
         ]
     );
@@ -235,50 +261,66 @@ fn test_contig_neighbourhood_enumerator_seek() {
     .unwrap();
     let mut e = c.neighbourhood_enumerator();
 
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&10)));
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((9, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((10, Some(&10))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 
     e.seek(10);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&10)));
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((10, Some(&10))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
 
     e.seek(-1);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&10)));
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((9, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((10, Some(&10))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
 
     e.seek(11);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&13)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
 
     e.seek(12);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&13)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 
     e.seek(11);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&11)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 
     e.seek(19);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&120)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((19, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((20, Some(&120))));
 
     e.seek(20);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&120)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((20, Some(&120))));
 
     e.seek(21);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&130)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((21, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((29, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((30, Some(&130))));
 
     e.seek(30);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&130)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((30, Some(&130))));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((31, None)));
 
     e.seek(31);
-    assert_eq!(e.next().map(|n| n.items[1]), None);
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((31, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), None);
 
     e.seek(31);
-    assert_eq!(e.next().map(|n| n.items[1]), None);
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((31, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), None);
 
     e.seek(100);
-    assert_eq!(e.next().map(|n| n.items[1]), None);
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), None);
 
     e.seek(12);
-    assert_eq!(e.next().map(|n| n.items[1]), Some(Some(&13)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 }
 
 #[test]

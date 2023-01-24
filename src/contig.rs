@@ -15,12 +15,6 @@ use std::ops::IndexMut;
 use std::ops::Sub;
 use std::ops::SubAssign;
 
-/// a trait like Ord<RHS>
-/// see [Rust RFC issue 2511](https://github.com/rust-lang/rfcs/issues/2511)
-trait Ord2<RHS> {
-    fn cmp(&self, other: &RHS) -> Ordering;
-}
-
 /// a span of contiguous items
 #[derive(Debug, Eq, PartialEq)]
 struct Span<Idx, T>
@@ -53,6 +47,12 @@ where
     /// return whether `i` is contained
     fn contains(&self, i: Idx) -> bool {
         i >= self.origin && i < self.origin + Idx::from_usize(self.items.len()).unwrap()
+    }
+
+    /// return whether `i` is contained or adjoining
+    fn contains_or_adjoins(&self, i: Idx) -> bool {
+        i >= self.origin - Idx::one()
+            && i <= self.origin + Idx::from_usize(self.items.len()).unwrap()
     }
 
     /// provide a reference to the indexed item
@@ -97,17 +97,33 @@ where
     /// get the neighbourhood for `i`, which must be in range
     fn get_neighbourhood(&self, i: Idx) -> Neighbourhood<Idx, &T> {
         let u = Idx::as_(i - self.origin);
-        let left = if u > 0 {
-            Some(&self.items[u - 1])
-        } else {
-            None
-        };
+        let left = (u > 0).then(|| &self.items[u - 1]);
         let item = &self.items[u];
         let right = self.items.get(u + 1);
 
         Neighbourhood {
             i,
             items: [left, Some(item), right],
+        }
+    }
+
+    fn cmp(&self, i: &Idx) -> Ordering {
+        if *i < self.origin {
+            Ordering::Greater
+        } else if *i < self.origin + Idx::from_usize(self.items.len()).unwrap() {
+            Ordering::Equal
+        } else {
+            Ordering::Less
+        }
+    }
+
+    fn cmp_with_adjacent(&self, i: &Idx) -> Ordering {
+        if *i < self.origin - Idx::one() {
+            Ordering::Greater
+        } else if *i <= self.origin + Idx::from_usize(self.items.len()).unwrap() {
+            Ordering::Equal
+        } else {
+            Ordering::Less
         }
     }
 }
@@ -143,21 +159,6 @@ where
 {
     fn index_mut(&mut self, i: Idx) -> &mut Self::Output {
         &mut self.items[Idx::as_(i - self.origin)]
-    }
-}
-
-impl<Idx, T> Ord2<Idx> for Span<Idx, T>
-where
-    Idx: Copy + FromPrimitive + Add<Output = Idx> + PartialOrd,
-{
-    fn cmp(&self, i: &Idx) -> Ordering {
-        if *i < self.origin {
-            Ordering::Greater
-        } else if *i < self.origin + Idx::from_usize(self.items.len()).unwrap() {
-            Ordering::Equal
-        } else {
-            Ordering::Less
-        }
     }
 }
 
@@ -257,6 +258,15 @@ where
         }
     }
 
+    /// provide a reference to the span one to the left, if any
+    fn get_left_of(&self, u: usize) -> Option<&Span<Idx, T>> {
+        if u > 0 {
+            Some(&self.spans[u - 1])
+        } else {
+            None
+        }
+    }
+
     /// provide a reference to the indexed item, if any
     fn get_in_left(&self, u: usize, i: Idx) -> Option<&T> {
         if u > 0 {
@@ -319,13 +329,21 @@ where
         ContigNeighbourhoodEnumerator::new(self)
     }
 
-    /// find the first item at or past the given index
-    fn find(&self, i: Idx) -> (usize, Idx) {
-        match self.spans.binary_search_by(|c| c.cmp(&i)) {
-            Ok(u) => (u, i),
+    /// in case of a gap of one, prefer left adjoining of the right span over the right adjoining of the left span
+    pub fn normalised(&self, u: usize, i: Idx) -> usize {
+        match self.spans.get(u + 1) {
+            Some(span_right) if span_right.adjoins_left(i) => u + 1,
+            _ => u,
+        }
+    }
+
+    /// find the first item at or past the given index, including adjacent siblings,
+    fn find_with_adjacent(&self, i: Idx) -> (usize, Idx) {
+        match self.spans.binary_search_by(|c| c.cmp_with_adjacent(&i)) {
+            Ok(u) => (self.normalised(u, i), i),
             Err(u) => {
                 if u < self.spans.len() {
-                    (u, self.spans[u].origin)
+                    (u, self.spans[u].origin - Idx::one())
                 } else {
                     (u, i)
                 }
@@ -334,6 +352,7 @@ where
     }
 }
 
+/// an iterator which returns neighbourhoods for all items and their adjacent siblings, with indices
 pub struct ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy,
@@ -358,30 +377,19 @@ where
 {
     fn new(c: &'a Contig<Idx, T>) -> ContigNeighbourhoodEnumerator<'a, Idx, T> {
         let u_next = 0;
-        let i_next = c.spans[u_next].origin;
+        let i_next = c.spans[u_next].origin - Idx::one();
 
         ContigNeighbourhoodEnumerator { c, u_next, i_next }
-    }
-
-    /// advance the enumerator
-    fn advance(&mut self) {
-        self.i_next += Idx::one();
-        if !self.c.spans[self.u_next].contains(self.i_next) {
-            self.u_next += 1;
-            if self.u_next < self.c.spans.len() {
-                self.i_next = self.c.spans[self.u_next].origin;
-            }
-        }
     }
 
     /// return the neighbourhood for `i`,
     /// positioning the iterator after the returned item, which may be backwards
     fn get(&mut self, i: Idx) -> [Option<&'a T>; 3] {
-        let i_left = i - Idx::from_usize(1).unwrap();
-        let i_right = i + Idx::from_usize(1).unwrap();
+        let i_left = i - Idx::one();
+        let i_right = i + Idx::one();
 
         if i < self.i_next {
-            (self.u_next, self.i_next) = self.c.find(i);
+            (self.u_next, self.i_next) = self.c.find_with_adjacent(i);
         }
 
         // skip contig
@@ -428,8 +436,41 @@ where
 
     fn next(&mut self) -> Option<Neighbourhood<Idx, &'a T>> {
         if self.u_next < self.c.spans.len() {
-            let nbh = self.c.spans[self.u_next].get_neighbourhood(self.i_next);
-            self.advance();
+            let span = &self.c.spans[self.u_next];
+
+            let nbh = if span.contains(self.i_next) {
+                self.c.spans[self.u_next].get_neighbourhood(self.i_next)
+            } else if span.adjoins_left(self.i_next) {
+                // the item before this span, which could be in the gap between spans if that's a gap of one
+                let item_left = self
+                    .c
+                    .get_left_of(self.u_next)
+                    .and_then(|span_left| span_left.get(self.i_next - Idx::one()));
+                Neighbourhood {
+                    i: self.i_next,
+                    items: [item_left, None, span.get(span.origin)],
+                }
+            } else {
+                assert!(span.adjoins_right(self.i_next));
+
+                // there'll never be a gap of one situation here, since in that case we would have advanced onto the next span
+                Neighbourhood {
+                    i: self.i_next,
+                    items: [span.get(self.i_next - Idx::one()), None, None],
+                }
+            };
+
+            // advance the enumerator
+            self.i_next += Idx::one();
+            if !self.c.spans[self.u_next].contains_or_adjoins(self.i_next) {
+                self.u_next += 1;
+                if self.u_next < self.c.spans.len() {
+                    self.i_next = self.c.spans[self.u_next].origin - Idx::one();
+                }
+            }
+
+            self.u_next = self.c.normalised(self.u_next, self.i_next);
+
             Some(nbh)
         } else {
             None
@@ -451,25 +492,38 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn seek(&mut self, i: Idx) {
+    /// seek to any index including adjacent locations
+    fn seek(&mut self, i_from: Idx) {
         // look in current and adjacent spans before falling back to find
         if self.u_next < self.c.spans.len() {
-            let s = &self.c.spans[self.u_next];
-            if s.contains(i) {
-                self.i_next = i;
-            } else if self.u_next + 1 < self.c.spans.len()
-                && self.c.spans[self.u_next + 1].contains(i)
+            let span = &self.c.spans[self.u_next];
+            let span_left_o = self.c.get_left_of(self.u_next);
+            let span_right_o = self.c.spans.get(self.u_next + 1);
+
+            if span.contains(i_from)
+                || span.adjoins_left(i_from)
+                || (span.adjoins_right(i_from)
+                    && !span_right_o.map_or(false, |span_right| span_right.adjoins_left(i_from)))
             {
+                self.i_next = i_from;
+            } else if span_right_o.map_or(false, |span_right| {
+                span_right.contains(i_from) || span_right.adjoins_left(i_from)
+            }) {
+                // the adjoins right case is handled by find fallback, to avoid checking the right of right span
                 self.u_next += 1;
-                self.i_next = i;
-            } else if self.u_next > 0 && self.c.spans[self.u_next - 1].contains(i) {
+                self.i_next = i_from;
+            } else if span_left_o.map_or(false, |span_left| {
+                span_left.contains(i_from)
+                    || span_left.adjoins_left(i_from)
+                    || span_left.adjoins_right(i_from)
+            }) {
                 self.u_next -= 1;
-                self.i_next = i;
+                self.i_next = i_from;
             } else {
-                (self.u_next, self.i_next) = self.c.find(i);
+                (self.u_next, self.i_next) = self.c.find_with_adjacent(i_from);
             }
         } else {
-            (self.u_next, self.i_next) = self.c.find(i);
+            (self.u_next, self.i_next) = self.c.find_with_adjacent(i_from);
         }
     }
 }
