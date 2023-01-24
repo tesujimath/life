@@ -20,9 +20,9 @@ trait Ord2<RHS> {
     fn cmp(&self, other: &RHS) -> Ordering;
 }
 
-/// a block of contiguous items
+/// a span of contiguous items
 #[derive(Debug, Eq, PartialEq)]
-struct Contig<Idx, T>
+struct Span<Idx, T>
 where
     Idx: Copy,
 {
@@ -31,7 +31,7 @@ where
     items: VecDeque<T>,
 }
 
-impl<Idx, T> Contig<Idx, T>
+impl<Idx, T> Span<Idx, T>
 where
     Idx: Copy
         + One
@@ -42,8 +42,8 @@ where
         + PartialOrd
         + SubAssign,
 {
-    fn new(i: Idx, item: T) -> Contig<Idx, T> {
-        Contig {
+    fn new(i: Idx, item: T) -> Span<Idx, T> {
+        Span {
             origin: i,
             items: VecDeque::from(vec![item]),
         }
@@ -89,7 +89,7 @@ where
         self.items.push_back(item);
     }
 
-    fn append(&mut self, other: &mut Contig<Idx, T>) {
+    fn append(&mut self, other: &mut Span<Idx, T>) {
         self.items.append(&mut other.items);
     }
 
@@ -101,17 +101,17 @@ where
         } else {
             None
         };
-        let this = &self.items[u];
+        let item = &self.items[u];
         let right = self.items.get(u + 1);
 
         Neighbourhood {
             i,
-            items: [left, Some(this), right],
+            items: [left, Some(item), right],
         }
     }
 }
 
-impl<Idx, T> Index<Idx> for Contig<Idx, T>
+impl<Idx, T> Index<Idx> for Span<Idx, T>
 where
     Idx: Copy
         + One
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<Idx, T> IndexMut<Idx> for Contig<Idx, T>
+impl<Idx, T> IndexMut<Idx> for Span<Idx, T>
 where
     Idx: Copy
         + One
@@ -145,7 +145,7 @@ where
     }
 }
 
-impl<Idx, T> Ord2<Idx> for Contig<Idx, T>
+impl<Idx, T> Ord2<Idx> for Span<Idx, T>
 where
     Idx: Copy + FromPrimitive + Add<Output = Idx> + PartialOrd,
 {
@@ -166,16 +166,16 @@ pub struct Neighbourhood<Idx, T> {
     items: [Option<T>; 3],
 }
 
-/// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
+/// an ordered list of spans, ordered by `origin`, and coelesced opportunistically
 #[derive(Debug, Eq, PartialEq)]
-pub struct Contigs<Idx, T>
+pub struct Contig<Idx, T>
 where
     Idx: Copy,
 {
-    contigs: VecDeque<Contig<Idx, T>>,
+    spans: VecDeque<Span<Idx, T>>,
 }
 
-enum ContigsUpdate {
+enum ContigUpdate {
     Set(usize),
     PushFront(usize),
     PushFrontAndCoelesce(usize),
@@ -183,7 +183,7 @@ enum ContigsUpdate {
     Insert(usize),
 }
 
-impl<Idx, T> Contigs<Idx, T>
+impl<Idx, T> Contig<Idx, T>
 where
     Idx: Copy
         + One
@@ -196,14 +196,14 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(i: Idx, item: T) -> Contigs<Idx, T> {
-        let c = Contig::new(i, item);
-        let mut contigs = VecDeque::new();
-        contigs.push_front(c);
-        Contigs { contigs }
+    fn new(i: Idx, item: T) -> Contig<Idx, T> {
+        let s = Span::new(i, item);
+        let mut spans = VecDeque::new();
+        spans.push_front(s);
+        Contig { spans }
     }
 
-    fn from<I>(into_it: I) -> Option<Contigs<Idx, T>>
+    fn from<I>(into_it: I) -> Option<Contig<Idx, T>>
     where
         I: IntoIterator<Item = (Idx, T)>,
     {
@@ -211,10 +211,10 @@ where
 
         match it.by_ref().next() {
             Some((i, item)) => {
-                let oc0 = Contigs::new(i, item);
-                Some(it.fold(oc0, |mut oc, (i, item)| {
-                    oc.set(i, item);
-                    oc
+                let c0 = Contig::new(i, item);
+                Some(it.fold(c0, |mut c, (i, item)| {
+                    c.set(i, item);
+                    c
                 }))
             }
             None => None,
@@ -222,22 +222,22 @@ where
     }
 
     fn origin(&self) -> Idx {
-        self.contigs[0].origin
+        self.spans[0].origin
     }
 
-    fn determine_update(&self, i: Idx) -> ContigsUpdate {
-        use ContigsUpdate::*;
+    fn determine_update(&self, i: Idx) -> ContigUpdate {
+        use ContigUpdate::*;
 
-        match self.contigs.binary_search_by(|c| c.cmp(&i)) {
+        match self.spans.binary_search_by(|c| c.cmp(&i)) {
             Ok(u) => Set(u),
             Err(u) => {
                 let c_left_o = if u > 0 {
-                    self.contigs.get(u - 1)
+                    self.spans.get(u - 1)
                 } else {
-                    self.contigs.get(u)
+                    self.spans.get(u)
                 };
 
-                match (c_left_o, self.contigs.get(u)) {
+                match (c_left_o, self.spans.get(u)) {
                     (Some(c_left), Some(c_i)) if c_i.adjoins_left(i) => {
                         if c_left.adjoins_right(i) {
                             PushFrontAndCoelesce(u)
@@ -259,7 +259,7 @@ where
     /// provide a reference to the indexed item, if any
     fn get_in_left(&self, u: usize, i: Idx) -> Option<&T> {
         if u > 0 {
-            self.contigs[u - 1].get(i)
+            self.spans[u - 1].get(i)
         } else {
             None
         }
@@ -267,8 +267,8 @@ where
 
     /// provide a reference to the indexed item
     fn get(&self, i: Idx) -> Option<&T> {
-        if let Ok(u) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
-            self.contigs[u].get(i)
+        if let Ok(u) = self.spans.binary_search_by(|c| c.cmp(&i)) {
+            self.spans[u].get(i)
         } else {
             None
         }
@@ -276,56 +276,56 @@ where
 
     /// provide a mutable reference to the indexed item
     fn get_mut(&mut self, i: Idx) -> Option<&mut T> {
-        if let Ok(u) = self.contigs.binary_search_by(|c| c.cmp(&i)) {
-            self.contigs[u].get_mut(i)
+        if let Ok(u) = self.spans.binary_search_by(|c| c.cmp(&i)) {
+            self.spans[u].get_mut(i)
         } else {
             None
         }
     }
 
     fn set(&mut self, i: Idx, item: T) {
-        use ContigsUpdate::*;
+        use ContigUpdate::*;
 
         match self.determine_update(i) {
-            Set(u) => self.contigs[u][i] = item,
+            Set(u) => self.spans[u][i] = item,
 
-            PushFront(u) => self.contigs[u].push_front(item),
+            PushFront(u) => self.spans[u].push_front(item),
 
             PushFrontAndCoelesce(u) => {
-                self.contigs[u].push_front(item);
+                self.spans[u].push_front(item);
                 self.coelesce_left(u);
             }
 
-            PushBack(u) => self.contigs[u].push_back(item),
+            PushBack(u) => self.spans[u].push_back(item),
 
-            Insert(u) => self.contigs.insert(u, Contig::new(i, item)),
+            Insert(u) => self.spans.insert(u, Span::new(i, item)),
         }
     }
 
     fn coelesce_left(&mut self, u: usize) {
-        if let Some(mut removed_c) = self.contigs.remove(u) {
-            self.contigs[u - 1].append(&mut removed_c);
+        if let Some(mut removed_c) = self.spans.remove(u) {
+            self.spans[u - 1].append(&mut removed_c);
         }
     }
 
-    pub fn enumerator(&self) -> ContigsEnumerator<Idx, T> {
-        let next_i = self.contigs[0].origin;
+    pub fn enumerator(&self) -> ContigEnumerator<Idx, T> {
+        let next_i = self.spans[0].origin;
 
-        ContigsEnumerator::new(self, 0, next_i)
+        ContigEnumerator::new(self, 0, next_i)
     }
 
-    pub fn neighbourhood_enumerator(&self) -> ContigsNeighbourhoodEnumerator<Idx, T> {
-        let next_i = self.contigs[0].origin;
+    pub fn neighbourhood_enumerator(&self) -> ContigNeighbourhoodEnumerator<Idx, T> {
+        let next_i = self.spans[0].origin;
 
-        ContigsNeighbourhoodEnumerator::new(self, 0, next_i)
+        ContigNeighbourhoodEnumerator::new(self, 0, next_i)
     }
 
     fn find(&self, i: Idx) -> (usize, Idx) {
-        match self.contigs.binary_search_by(|c| c.cmp(&i)) {
+        match self.spans.binary_search_by(|c| c.cmp(&i)) {
             Ok(u) => (u, i),
             Err(u) => {
-                if u < self.contigs.len() {
-                    (u, self.contigs[u].origin)
+                if u < self.spans.len() {
+                    (u, self.spans[u].origin)
                 } else {
                     (u, i)
                 }
@@ -333,23 +333,23 @@ where
         }
     }
 
-    pub fn neighbourhood_enumerator_from(&self, i: Idx) -> ContigsNeighbourhoodEnumerator<Idx, T> {
+    pub fn neighbourhood_enumerator_from(&self, i: Idx) -> ContigNeighbourhoodEnumerator<Idx, T> {
         let (next_u, next_i) = self.find(i);
 
-        ContigsNeighbourhoodEnumerator::new(self, next_u, next_i)
+        ContigNeighbourhoodEnumerator::new(self, next_u, next_i)
     }
 }
 
-pub struct ContigsNeighbourhoodEnumerator<'a, Idx, T>
+pub struct ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy,
 {
-    oc: &'a Contigs<Idx, T>,
-    u_c: usize,
-    next_i: Idx,
+    c: &'a Contig<Idx, T>,
+    u_next: usize,
+    i_next: Idx,
 }
 
-impl<'a, Idx, T> ContigsNeighbourhoodEnumerator<'a, Idx, T>
+impl<'a, Idx, T> ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -363,20 +363,20 @@ where
         + SubAssign,
 {
     fn new(
-        oc: &'a Contigs<Idx, T>,
-        u_c: usize,
-        next_i: Idx,
-    ) -> ContigsNeighbourhoodEnumerator<'a, Idx, T> {
-        ContigsNeighbourhoodEnumerator { oc, u_c, next_i }
+        c: &'a Contig<Idx, T>,
+        u_next: usize,
+        i_next: Idx,
+    ) -> ContigNeighbourhoodEnumerator<'a, Idx, T> {
+        ContigNeighbourhoodEnumerator { c, u_next, i_next }
     }
 
     /// advance the enumerator
     fn advance(&mut self) {
-        self.next_i += Idx::one();
-        if !self.oc.contigs[self.u_c].contains(self.next_i) {
-            self.u_c += 1;
-            if self.u_c < self.oc.contigs.len() {
-                self.next_i = self.oc.contigs[self.u_c].origin;
+        self.i_next += Idx::one();
+        if !self.c.spans[self.u_next].contains(self.i_next) {
+            self.u_next += 1;
+            if self.u_next < self.c.spans.len() {
+                self.i_next = self.c.spans[self.u_next].origin;
             }
         }
     }
@@ -387,38 +387,38 @@ where
         let i_left = i - Idx::from_usize(1).unwrap();
         let i_right = i + Idx::from_usize(1).unwrap();
 
-        if i < self.next_i {
-            (self.u_c, self.next_i) = self.oc.find(i);
+        if i < self.i_next {
+            (self.u_next, self.i_next) = self.c.find(i);
         }
 
         // skip contig
-        while self.u_c < self.oc.contigs.len()
-            && self.oc.contigs[self.u_c].cmp(&i) == Ordering::Less
+        while self.u_next < self.c.spans.len()
+            && self.c.spans[self.u_next].cmp(&i) == Ordering::Less
         {
-            self.u_c += 1;
+            self.u_next += 1;
         }
 
-        if self.u_c < self.oc.contigs.len() {
-            let c = &self.oc.contigs[self.u_c];
+        if self.u_next < self.c.spans.len() {
+            let c = &self.c.spans[self.u_next];
             let item_this = c.get(i);
             let item_left = match item_this {
                 Some(_) => c.get(i_left),
                 // this is the tricky case where we have to look in the contig to the left, if any:
                 None => c
                     .get(i_left)
-                    .or_else(|| self.oc.get_in_left(self.u_c, i_left)),
+                    .or_else(|| self.c.get_in_left(self.u_next, i_left)),
             };
             let item_right = c.get(i_right);
             [item_left, item_this, item_right]
         } else {
             // again, we need to look in the contig to the left, if any
-            let item_left = self.oc.get_in_left(self.u_c, i_left);
+            let item_left = self.c.get_in_left(self.u_next, i_left);
             [item_left, None, None]
         }
     }
 }
 
-impl<'a, Idx, T> Iterator for ContigsNeighbourhoodEnumerator<'a, Idx, T>
+impl<'a, Idx, T> Iterator for ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -434,8 +434,8 @@ where
     type Item = Neighbourhood<Idx, &'a T>;
 
     fn next(&mut self) -> Option<Neighbourhood<Idx, &'a T>> {
-        if self.u_c < self.oc.contigs.len() {
-            let nbh = self.oc.contigs[self.u_c].get_neighbourhood(self.next_i);
+        if self.u_next < self.c.spans.len() {
+            let nbh = self.c.spans[self.u_next].get_neighbourhood(self.i_next);
             self.advance();
             Some(nbh)
         } else {
@@ -445,16 +445,16 @@ where
 }
 
 /// simple enumerator without the neighbourhood
-pub struct ContigsEnumerator<'a, Idx, T>
+pub struct ContigEnumerator<'a, Idx, T>
 where
     Idx: Copy,
 {
-    oc: &'a Contigs<Idx, T>,
-    u_c: usize,
-    next_i: Idx,
+    c: &'a Contig<Idx, T>,
+    u_next: usize,
+    i_next: Idx,
 }
 
-impl<'a, Idx, T> ContigsEnumerator<'a, Idx, T>
+impl<'a, Idx, T> ContigEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -467,23 +467,23 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(oc: &'a Contigs<Idx, T>, u_c: usize, next_i: Idx) -> ContigsEnumerator<'a, Idx, T> {
-        ContigsEnumerator { oc, u_c, next_i }
+    fn new(c: &'a Contig<Idx, T>, u_next: usize, i_next: Idx) -> ContigEnumerator<'a, Idx, T> {
+        ContigEnumerator { c, u_next, i_next }
     }
 
     /// advance the enumerator
     fn advance(&mut self) {
-        self.next_i += Idx::one();
-        if !self.oc.contigs[self.u_c].contains(self.next_i) {
-            self.u_c += 1;
-            if self.u_c < self.oc.contigs.len() {
-                self.next_i = self.oc.contigs[self.u_c].origin;
+        self.i_next += Idx::one();
+        if !self.c.spans[self.u_next].contains(self.i_next) {
+            self.u_next += 1;
+            if self.u_next < self.c.spans.len() {
+                self.i_next = self.c.spans[self.u_next].origin;
             }
         }
     }
 }
 
-impl<'a, Idx, T> Iterator for ContigsEnumerator<'a, Idx, T>
+impl<'a, Idx, T> Iterator for ContigEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -499,9 +499,9 @@ where
     type Item = (Idx, &'a T);
 
     fn next(&mut self) -> Option<(Idx, &'a T)> {
-        if self.u_c < self.oc.contigs.len() {
-            let i = self.next_i;
-            let item = &self.oc.contigs[self.u_c][i];
+        if self.u_next < self.c.spans.len() {
+            let i = self.i_next;
+            let item = &self.c.spans[self.u_next][i];
             self.advance();
             Some((i, item))
         } else {
@@ -521,11 +521,11 @@ where
 
 /// nonempty 2D array of Contigs, organised in rows, or None
 #[derive(Debug)]
-pub struct CartesianContigs<Idx, T>(Contigs<Idx, Contigs<Idx, T>>)
+pub struct CartesianContig<Idx, T>(Contig<Idx, Contig<Idx, T>>)
 where
     Idx: Copy;
 
-impl<Idx, T> CartesianContigs<Idx, T>
+impl<Idx, T> CartesianContig<Idx, T>
 where
     Idx: Copy
         + Default
@@ -540,8 +540,8 @@ where
         + SubAssign,
 {
     /// create almost empty, with a single cell
-    pub fn new(x: Idx, y: Idx, item: T) -> CartesianContigs<Idx, T> {
-        CartesianContigs(Contigs::new(y, Contigs::new(x, item)))
+    pub fn new(x: Idx, y: Idx, item: T) -> CartesianContig<Idx, T> {
+        CartesianContig(Contig::new(y, Contig::new(x, item)))
     }
 
     pub fn get(&self, x: Idx, y: Idx) -> Option<&T> {
@@ -551,7 +551,7 @@ where
     pub fn set(&mut self, x: Idx, y: Idx, item: T) {
         match self.0.get_mut(y) {
             Some(row) => row.set(x, item),
-            None => self.0.set(y, Contigs::new(x, item)),
+            None => self.0.set(y, Contig::new(x, item)),
         }
     }
 
@@ -559,7 +559,7 @@ where
         Coordinate {
             x: self
                 .0
-                .contigs
+                .spans
                 .iter()
                 .min_by(|lhs, rhs| lhs.origin.cmp(&rhs.origin))
                 .unwrap()
@@ -568,12 +568,12 @@ where
         }
     }
 
-    pub fn rows_enumerator(&self) -> ContigsEnumerator<Idx, Contigs<Idx, T>> {
+    pub fn rows_enumerator(&self) -> ContigEnumerator<Idx, Contig<Idx, T>> {
         self.0.enumerator()
     }
 
-    pub fn neighbourhood_enumerator(&self) -> CartesianContigsNeighbourhoodEnumerator<Idx, T> {
-        CartesianContigsNeighbourhoodEnumerator::new(self)
+    pub fn neighbourhood_enumerator(&self) -> CartesianContigNeighbourhoodEnumerator<Idx, T> {
+        CartesianContigNeighbourhoodEnumerator::new(self)
     }
 }
 
@@ -584,17 +584,17 @@ pub struct CartesianNeighbourhood<Idx, T> {
     items: [[Option<T>; 3]; 3], // first index is row
 }
 
-pub struct CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
+pub struct CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy,
 {
-    row_enumerator: ContigsNeighbourhoodEnumerator<'a, Idx, Contigs<Idx, T>>,
-    row_nbh: Option<Neighbourhood<Idx, &'a Contigs<Idx, T>>>,
+    row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
+    row_nbh: Option<Neighbourhood<Idx, &'a Contig<Idx, T>>>,
 
-    column_enumerators: Option<Neighbourhood<Idx, ContigsNeighbourhoodEnumerator<'a, Idx, T>>>,
+    column_enumerators: Option<Neighbourhood<Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>>>,
 }
 
-impl<'a, Idx, T> CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
+impl<'a, Idx, T> CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default
@@ -607,9 +607,9 @@ where
         + AddAssign
         + SubAssign,
 {
-    fn new(c: &'a CartesianContigs<Idx, T>) -> CartesianContigsNeighbourhoodEnumerator<'a, Idx, T> {
+    fn new(c: &'a CartesianContig<Idx, T>) -> CartesianContigNeighbourhoodEnumerator<'a, Idx, T> {
         let row_enumerator = c.0.neighbourhood_enumerator();
-        let mut result = CartesianContigsNeighbourhoodEnumerator {
+        let mut result = CartesianContigNeighbourhoodEnumerator {
             row_enumerator,
             row_nbh: None,
             column_enumerators: None,
@@ -635,17 +635,11 @@ where
         }
         if let Some(ref mut row_nbh) = self.row_nbh {
             self.column_enumerators = {
-                let i_row = row_nbh.i;
-                let this = row_nbh.items[1].unwrap();
-                let row_origin = this.origin();
-
                 Some(Neighbourhood {
-                    i: i_row,
-                    items: [
-                        row_nbh.items[0].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
-                        Some(this.neighbourhood_enumerator()),
-                        row_nbh.items[2].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
-                    ],
+                    i: row_nbh.i,
+                    items: row_nbh
+                        .items
+                        .map(|item| item.map(|c| c.neighbourhood_enumerator())),
                 })
             };
         }
@@ -656,17 +650,17 @@ where
         self.column_enumerators
             .as_mut()
             .and_then(|rows| match &mut rows.items[1] {
-                Some(ref mut this_enumerator) => match this_enumerator.next() {
-                    Some(this) => {
-                        let i_col = this.i;
+                Some(ref mut row_1_e) => match row_1_e.next() {
+                    Some(row_1_nbh) => {
+                        let i_col = row_1_nbh.i;
                         let absent: [Option<&'a T>; 3] = [None, None, None];
                         Some(CartesianNeighbourhood {
                             i_row: rows.i,
                             i_col,
                             items: [
-                                rows.items[0].as_mut().map_or(absent, |oc| oc.get(i_col)),
-                                this.items,
-                                rows.items[2].as_mut().map_or(absent, |oc| oc.get(i_col)),
+                                rows.items[0].as_mut().map_or(absent, |c| c.get(i_col)),
+                                row_1_nbh.items,
+                                rows.items[2].as_mut().map_or(absent, |c| c.get(i_col)),
                             ],
                         })
                     }
@@ -677,7 +671,7 @@ where
     }
 }
 
-impl<'a, Idx, T> Iterator for CartesianContigsNeighbourhoodEnumerator<'a, Idx, T>
+impl<'a, Idx, T> Iterator for CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
         + Default

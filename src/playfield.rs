@@ -1,7 +1,7 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code, unused_variables)]
 
-use super::contig::{CartesianContigs, Coordinate};
+use super::contig::{CartesianContig, Coordinate};
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
@@ -75,7 +75,7 @@ where
         + AddAssign
         + SubAssign,
 {
-    contigs: CartesianContigs<Idx, T>,
+    cc: CartesianContig<Idx, T>,
 }
 
 impl<Idx, T> Playfield<Idx, T>
@@ -96,7 +96,7 @@ where
 {
     fn new() -> Playfield<Idx, T> {
         Playfield {
-            contigs: CartesianContigs::new(Idx::zero(), Idx::zero(), T::zero()),
+            cc: CartesianContig::new(Idx::zero(), Idx::zero(), T::zero()),
         }
     }
 
@@ -155,7 +155,7 @@ where
                 if !T::is_zero(&merged_pair) {
                     let x = Idx::from_usize(x_u).unwrap() + origin.x;
                     let y = Idx::from_usize(y_u).unwrap() + origin.y;
-                    playfield.contigs.set(x, y, merged_pair);
+                    playfield.cc.set(x, y, merged_pair);
                 }
             }
         }
@@ -170,10 +170,10 @@ where
         T: Copy,
         H: Zero + Copy,
     {
-        let origin = self.contigs.origin();
+        let origin = self.cc.origin();
         let mut rows: Vec<Vec<H>> = Vec::new();
 
-        for (y, row) in self.contigs.rows_enumerator() {
+        for (y, row) in self.cc.rows_enumerator() {
             let mut lower_items = Vec::new();
             let mut upper_items = Vec::new();
             for (x, merged_item) in row.enumerator() {

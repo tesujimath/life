@@ -2,9 +2,9 @@
 use super::*;
 
 #[test]
-fn test_contig_ord2() {
+fn test_span_ord2() {
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::<u8>::new()
         }
@@ -13,7 +13,7 @@ fn test_contig_ord2() {
     );
 
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::<u8>::new()
         }
@@ -22,7 +22,7 @@ fn test_contig_ord2() {
     );
 
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::<u8>::new()
         }
@@ -31,7 +31,7 @@ fn test_contig_ord2() {
     );
 
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::from(vec![7u8])
         }
@@ -40,7 +40,7 @@ fn test_contig_ord2() {
     );
 
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::from(vec![7u8])
         }
@@ -49,7 +49,7 @@ fn test_contig_ord2() {
     );
 
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::from(vec![7u8])
         }
@@ -58,7 +58,7 @@ fn test_contig_ord2() {
     );
 
     assert_eq!(
-        Contig {
+        Span {
             origin: 1,
             items: VecDeque::from(vec![5u8, 7u8])
         }
@@ -68,70 +68,70 @@ fn test_contig_ord2() {
 }
 
 #[test]
-fn test_contigs_binary_search() {
-    let contigs = VecDeque::from(vec![
-        Contig {
+fn test_spans_binary_search() {
+    let spans = VecDeque::from(vec![
+        Span {
             origin: 0,
             items: VecDeque::from(vec![5u8, 7u8]),
         },
-        Contig {
+        Span {
             origin: 3,
             items: VecDeque::from(vec![3u8]),
         },
     ]);
 
-    assert_eq!(contigs.binary_search_by(|span| span.cmp(&-1)), Err(0));
-    assert_eq!(contigs.binary_search_by(|span| span.cmp(&1)), Ok(0));
-    assert_eq!(contigs.binary_search_by(|span| span.cmp(&2)), Err(1));
-    assert_eq!(contigs.binary_search_by(|span| span.cmp(&3)), Ok(1));
-    assert_eq!(contigs.binary_search_by(|span| span.cmp(&4)), Err(2));
+    assert_eq!(spans.binary_search_by(|span| span.cmp(&-1)), Err(0));
+    assert_eq!(spans.binary_search_by(|span| span.cmp(&1)), Ok(0));
+    assert_eq!(spans.binary_search_by(|span| span.cmp(&2)), Err(1));
+    assert_eq!(spans.binary_search_by(|span| span.cmp(&3)), Ok(1));
+    assert_eq!(spans.binary_search_by(|span| span.cmp(&4)), Err(2));
 }
 
 #[test]
-fn test_contigs_set() {
-    let oc = &mut Contigs::new(10, 10u8);
+fn test_contig_set() {
+    let c = &mut Contig::new(10, 10u8);
     assert_eq!(
-        *oc,
-        Contigs {
-            contigs: VecDeque::from(vec![Contig {
+        *c,
+        Contig {
+            spans: VecDeque::from(vec![Span {
                 origin: 10,
                 items: VecDeque::from(vec![10u8])
             },])
         }
     );
 
-    oc.set(11, 11u8);
+    c.set(11, 11u8);
     assert_eq!(
-        *oc,
-        Contigs {
-            contigs: VecDeque::from(vec![Contig {
+        *c,
+        Contig {
+            spans: VecDeque::from(vec![Span {
                 origin: 10,
                 items: VecDeque::from(vec![10u8, 11u8])
             },])
         }
     );
 
-    oc.set(9, 9u8);
+    c.set(9, 9u8);
     assert_eq!(
-        *oc,
-        Contigs {
-            contigs: VecDeque::from(vec![Contig {
+        *c,
+        Contig {
+            spans: VecDeque::from(vec![Span {
                 origin: 9,
                 items: VecDeque::from(vec![9u8, 10u8, 11u8])
             }])
         }
     );
 
-    oc.set(7, 7u8);
+    c.set(7, 7u8);
     assert_eq!(
-        *oc,
-        Contigs {
-            contigs: VecDeque::from(vec![
-                Contig {
+        *c,
+        Contig {
+            spans: VecDeque::from(vec![
+                Span {
                     origin: 7,
                     items: VecDeque::from(vec![7u8])
                 },
-                Contig {
+                Span {
                     origin: 9,
                     items: VecDeque::from(vec![9u8, 10u8, 11u8])
                 }
@@ -139,11 +139,11 @@ fn test_contigs_set() {
         }
     );
 
-    oc.set(8, 8u8);
+    c.set(8, 8u8);
     assert_eq!(
-        *oc,
-        Contigs {
-            contigs: VecDeque::from(vec![Contig {
+        *c,
+        Contig {
+            spans: VecDeque::from(vec![Span {
                 origin: 7,
                 items: VecDeque::from(vec![7u8, 8u8, 9u8, 10u8, 11u8])
             }])
@@ -152,35 +152,35 @@ fn test_contigs_set() {
 }
 
 #[test]
-fn test_contigs_get() {
-    let oc = &mut Contigs::new(10, 10u8);
+fn test_contig_get() {
+    let c = &mut Contig::new(10, 10u8);
 
-    oc.set(11, 11u8);
-    oc.set(13, 13u8);
+    c.set(11, 11u8);
+    c.set(13, 13u8);
 
-    assert_eq!(oc.get(9), None);
-    assert_eq!(oc.get(10), Some(&10u8));
-    assert_eq!(oc.get(11), Some(&11u8));
-    assert_eq!(oc.get(12), None);
-    assert_eq!(oc.get(13), Some(&13u8));
-    assert_eq!(oc.get(14), None);
+    assert_eq!(c.get(9), None);
+    assert_eq!(c.get(10), Some(&10u8));
+    assert_eq!(c.get(11), Some(&11u8));
+    assert_eq!(c.get(12), None);
+    assert_eq!(c.get(13), Some(&13u8));
+    assert_eq!(c.get(14), None);
 }
 
 #[test]
-fn test_contigs_enumerator() {
-    fn enumerator_as_vec(oc: &Contigs<i32, u8>) -> Vec<Neighbourhood<i32, &u8>> {
-        oc.neighbourhood_enumerator()
+fn test_contig_neighbourhood_enumerator() {
+    fn enumerator_as_vec(c: &Contig<i32, u8>) -> Vec<Neighbourhood<i32, &u8>> {
+        c.neighbourhood_enumerator()
             //.map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
             .collect()
     }
 
-    let oc = &mut Contigs::new(10, 10u8);
+    let c = &mut Contig::new(10, 10u8);
 
-    oc.set(11, 11u8);
-    oc.set(13, 13u8);
+    c.set(11, 11u8);
+    c.set(13, 13u8);
 
     assert_eq!(
-        enumerator_as_vec(oc),
+        enumerator_as_vec(c),
         vec![
             Neighbourhood {
                 i: 10,
@@ -199,10 +199,10 @@ fn test_contigs_enumerator() {
 }
 
 #[test]
-fn test_contigs_enumerator_get() {
-    let oc = Contigs::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
+fn test_contig_neighbourhood_enumerator_get() {
+    let c = Contig::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
 
-    let mut e0 = oc.neighbourhood_enumerator();
+    let mut e0 = c.neighbourhood_enumerator();
     assert_eq!(e0.get(9), [None, None, Some(&10u8)]);
     assert_eq!(e0.get(10), [None, Some(&10u8), Some(&11u8)]);
     assert_eq!(e0.get(11), [Some(&10u8), Some(&11u8), None]);
@@ -210,13 +210,13 @@ fn test_contigs_enumerator_get() {
     assert_eq!(e0.get(13), [None, Some(&13u8), None]);
     assert_eq!(e0.get(14), [Some(&13u8), None, None]);
 
-    let mut e1 = oc.neighbourhood_enumerator_from(11);
+    let mut e1 = c.neighbourhood_enumerator_from(11);
     assert_eq!(e1.get(10), [None, Some(&10u8), Some(&11u8)]);
     assert_eq!(e1.get(11), [Some(&10u8), Some(&11u8), None]);
     assert_eq!(e1.get(12), [Some(&11), None, Some(&13)]);
     assert_eq!(e1.get(13), [None, Some(&13u8), None]);
 
-    let mut e2 = oc.neighbourhood_enumerator_from(12);
+    let mut e2 = c.neighbourhood_enumerator_from(12);
     assert_eq!(e2.get(10), [None, Some(&10u8), Some(&11u8)]);
     assert_eq!(e2.get(11), [Some(&10u8), Some(&11u8), None]);
     assert_eq!(e2.get(12), [Some(&11), None, Some(&13)]);
@@ -224,24 +224,24 @@ fn test_contigs_enumerator_get() {
 }
 
 #[test]
-fn test_cartesian_contigs_set() {
-    let mut c = CartesianContigs::new(0, 0, 0u8);
-    c.set(1, 1, 11u8);
-    c.set(4, 2, 42u8);
+fn test_cartesian_contig_set() {
+    let mut cc = CartesianContig::new(0, 0, 0u8);
+    cc.set(1, 1, 11u8);
+    cc.set(4, 2, 42u8);
 
-    assert_eq!(c.get(1, 1), Some(&11u8));
-    assert_eq!(c.get(1, 2), None);
-    assert_eq!(c.get(4, 1), None);
-    assert_eq!(c.get(4, 2), Some(&42u8));
+    assert_eq!(cc.get(1, 1), Some(&11u8));
+    assert_eq!(cc.get(1, 2), None);
+    assert_eq!(cc.get(4, 1), None);
+    assert_eq!(cc.get(4, 2), Some(&42u8));
 }
 
 #[test]
-fn test_cartesian_contigs_enumerator() {
-    fn enumerator_as_vec(cc: &CartesianContigs<i32, u8>) -> Vec<CartesianNeighbourhood<i32, &u8>> {
+fn test_cartesian_contig_neighbourhood_enumerator() {
+    fn enumerator_as_vec(cc: &CartesianContig<i32, u8>) -> Vec<CartesianNeighbourhood<i32, &u8>> {
         cc.neighbourhood_enumerator().collect()
     }
 
-    let mut cc = CartesianContigs::new(0, 0, 0u8);
+    let mut cc = CartesianContig::new(0, 0, 0u8);
     cc.set(1, 0, 1u8);
     cc.set(2, 0, 2u8);
     cc.set(1, 1, 11u8);
