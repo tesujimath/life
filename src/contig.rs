@@ -317,11 +317,7 @@ where
     }
 
     pub fn neighbourhood_enumerator(&self) -> OrderedContigsNeighbourhoodEnumerator<Idx, T> {
-        let next_i = if !self.contigs.is_empty() {
-            self.contigs[0].origin
-        } else {
-            Idx::default()
-        };
+        let next_i = self.contigs[0].origin;
 
         OrderedContigsNeighbourhoodEnumerator::new(self, 0, next_i)
     }
