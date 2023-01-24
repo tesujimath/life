@@ -168,10 +168,10 @@ fn test_contigs_get() {
 
 #[test]
 fn test_contigs_enumerator() {
-    fn enumerator_as_vec(oc: &Contigs<i32, u8>) -> Vec<(i32, Option<u8>, u8, Option<u8>)> {
+    fn enumerator_as_vec(oc: &Contigs<i32, u8>) -> Vec<Neighbourhood<i32, &u8>> {
         oc.neighbourhood_enumerator()
-            .map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
-            .collect::<Vec<(i32, Option<u8>, u8, Option<u8>)>>()
+            //.map(|nbh| (nbh.i, nbh.left.copied(), *nbh.this, nbh.right.copied()))
+            .collect()
     }
 
     let oc = &mut Contigs::new(10, 10u8);
@@ -182,9 +182,18 @@ fn test_contigs_enumerator() {
     assert_eq!(
         enumerator_as_vec(oc),
         vec![
-            (10, None, 10u8, Some(11u8)),
-            (11, Some(10u8), 11u8, None),
-            (13, None, 13u8, None),
+            Neighbourhood {
+                i: 10,
+                items: [None, Some(&10u8), Some(&11u8)]
+            },
+            Neighbourhood {
+                i: 11,
+                items: [Some(&10u8), Some(&11u8), None]
+            },
+            Neighbourhood {
+                i: 13,
+                items: [None, Some(&13u8), None]
+            },
         ]
     );
 }

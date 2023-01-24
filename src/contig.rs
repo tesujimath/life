@@ -106,9 +106,7 @@ where
 
         Neighbourhood {
             i,
-            left,
-            this,
-            right,
+            items: [left, Some(this), right],
         }
     }
 }
@@ -165,9 +163,18 @@ where
 #[derive(Eq, PartialEq, Debug)]
 pub struct Neighbourhood<Idx, T> {
     i: Idx,
-    left: Option<T>,
-    this: T,
-    right: Option<T>,
+    items: [Option<T>; 3],
+}
+
+impl<Idx, T> Neighbourhood<Idx, T> {
+    // TODO these _or_panic functions are ugly
+    fn this_or_panic(&self) -> &T {
+        self.items[1].as_ref().unwrap()
+    }
+
+    fn this_mut_or_panic(&mut self) -> &mut T {
+        self.items[1].as_mut().unwrap()
+    }
 }
 
 /// an ordered list of contigs, ordered by `origin`, and coelesced opportunistically
@@ -627,18 +634,18 @@ where
     /// advance the row
     fn advance_row(&mut self) {
         self.row_nbh = self.row_enumerator.next();
-        self.column_enumerators = self.row_nbh.as_ref().map(|row_nbh| {
-            let row_origin = row_nbh.this.origin();
+        self.column_enumerators = self.row_nbh.as_mut().map(|row_nbh| {
+            let i_row = row_nbh.i;
+            let this = row_nbh.this_or_panic();
+            let row_origin = this.origin();
 
             Neighbourhood {
-                i: row_nbh.i,
-                left: row_nbh
-                    .left
-                    .map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
-                this: row_nbh.this.neighbourhood_enumerator(),
-                right: row_nbh
-                    .right
-                    .map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+                i: i_row,
+                items: [
+                    row_nbh.items[0].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+                    Some(this.neighbourhood_enumerator()),
+                    row_nbh.items[2].map(|oc| oc.neighbourhood_enumerator_from(row_origin)),
+                ],
             }
         });
     }
@@ -647,7 +654,7 @@ where
     fn next_col(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
         self.column_enumerators
             .as_mut()
-            .and_then(|rows| match rows.this.next() {
+            .and_then(|rows| match rows.this_mut_or_panic().next() {
                 Some(this) => {
                     let i_col = this.i;
                     let absent: [Option<&'a T>; 3] = [None, None, None];
@@ -655,9 +662,9 @@ where
                         i_row: rows.i,
                         i_col,
                         items: [
-                            rows.left.as_mut().map_or(absent, |oc| oc.get(i_col)),
-                            [this.left, Some(this.this), this.right],
-                            rows.right.as_mut().map_or(absent, |oc| oc.get(i_col)),
+                            rows.items[0].as_mut().map_or(absent, |oc| oc.get(i_col)),
+                            this.items,
+                            rows.items[2].as_mut().map_or(absent, |oc| oc.get(i_col)),
                         ],
                     })
                 }
