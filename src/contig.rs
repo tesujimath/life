@@ -352,6 +352,72 @@ where
     }
 }
 
+/// simple enumerator without the neighbourhood
+pub struct ContigEnumerator<'a, Idx, T>
+where
+    Idx: Copy,
+{
+    c: &'a Contig<Idx, T>,
+    u_next: usize,
+    i_next: Idx,
+}
+
+impl<'a, Idx, T> ContigEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + AsPrimitive<usize>
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    fn new(c: &'a Contig<Idx, T>, u_next: usize, i_next: Idx) -> ContigEnumerator<'a, Idx, T> {
+        ContigEnumerator { c, u_next, i_next }
+    }
+
+    /// advance the enumerator
+    fn advance(&mut self) {
+        self.i_next += Idx::one();
+        if !self.c.spans[self.u_next].contains(self.i_next) {
+            self.u_next += 1;
+            if self.u_next < self.c.spans.len() {
+                self.i_next = self.c.spans[self.u_next].origin;
+            }
+        }
+    }
+}
+
+impl<'a, Idx, T> Iterator for ContigEnumerator<'a, Idx, T>
+where
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + AsPrimitive<usize>
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
+{
+    type Item = (Idx, &'a T);
+
+    fn next(&mut self) -> Option<(Idx, &'a T)> {
+        if self.u_next < self.c.spans.len() {
+            let i = self.i_next;
+            let item = &self.c.spans[self.u_next][i];
+            self.advance();
+            Some((i, item))
+        } else {
+            None
+        }
+    }
+}
+
 /// an iterator which returns neighbourhoods for all items and their adjacent siblings, with indices
 pub struct ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
@@ -524,72 +590,6 @@ where
             }
         } else {
             (self.u_next, self.i_next) = self.c.find_with_adjacent(i_from);
-        }
-    }
-}
-
-/// simple enumerator without the neighbourhood
-pub struct ContigEnumerator<'a, Idx, T>
-where
-    Idx: Copy,
-{
-    c: &'a Contig<Idx, T>,
-    u_next: usize,
-    i_next: Idx,
-}
-
-impl<'a, Idx, T> ContigEnumerator<'a, Idx, T>
-where
-    Idx: Copy
-        + Default
-        + One
-        + FromPrimitive
-        + AsPrimitive<usize>
-        + Add<Output = Idx>
-        + Sub<Output = Idx>
-        + PartialOrd
-        + AddAssign
-        + SubAssign,
-{
-    fn new(c: &'a Contig<Idx, T>, u_next: usize, i_next: Idx) -> ContigEnumerator<'a, Idx, T> {
-        ContigEnumerator { c, u_next, i_next }
-    }
-
-    /// advance the enumerator
-    fn advance(&mut self) {
-        self.i_next += Idx::one();
-        if !self.c.spans[self.u_next].contains(self.i_next) {
-            self.u_next += 1;
-            if self.u_next < self.c.spans.len() {
-                self.i_next = self.c.spans[self.u_next].origin;
-            }
-        }
-    }
-}
-
-impl<'a, Idx, T> Iterator for ContigEnumerator<'a, Idx, T>
-where
-    Idx: Copy
-        + Default
-        + One
-        + FromPrimitive
-        + AsPrimitive<usize>
-        + Add<Output = Idx>
-        + Sub<Output = Idx>
-        + PartialOrd
-        + AddAssign
-        + SubAssign,
-{
-    type Item = (Idx, &'a T);
-
-    fn next(&mut self) -> Option<(Idx, &'a T)> {
-        if self.u_next < self.c.spans.len() {
-            let i = self.i_next;
-            let item = &self.c.spans[self.u_next][i];
-            self.advance();
-            Some((i, item))
-        } else {
-            None
         }
     }
 }
