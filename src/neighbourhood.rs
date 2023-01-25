@@ -1,6 +1,7 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
+use std::convert::identity;
 use std::{iter::Peekable, marker::PhantomData};
 
 use super::indexed::Indexed;
@@ -47,7 +48,7 @@ where
     }
 
     /// return index of next item
-    fn next_i(&mut self) -> Option<Idx> {
+    fn determine_next(&mut self) -> Option<Idx> {
         let mut min_o: Option<Idx> = None;
         for (u, driver) in self.drivers.iter().enumerate() {
             if *driver {
@@ -67,6 +68,24 @@ where
 
         min_o
     }
+
+    /// consume the next item
+    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<Idx, S>)> {
+        let providers = self
+            .n
+            .items
+            .iter()
+            .enumerate()
+            .filter_map(|(u, p_o)| match p_o {
+                Some(p) => Some((u, p)),
+                None => None,
+            });
+        // for (u, provider) in providers {
+        //     provider.peek().and_then(|x| x)
+        // }
+
+        None
+    }
 }
 
 impl<Idx, T, S> Iterator for NeighbourhoodIterator<Idx, T, S>
@@ -78,8 +97,6 @@ where
     type Item = (Idx, Neighbourhood<Idx, S>);
 
     fn next(&mut self) -> Option<(Idx, Neighbourhood<Idx, S>)> {
-        let i = self.next_i();
-
-        None
+        self.determine_next().and_then(|i| self.consume_next(i))
     }
 }
