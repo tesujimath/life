@@ -3,5 +3,6 @@ fn main() {
 }
 
 mod contig;
+mod neighbourhood;
 mod playfield;
 mod seekable;

@@ -1,6 +1,7 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
+use super::neighbourhood::Neighbourhood;
 use super::seekable::SeekableIterator;
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
@@ -160,12 +161,6 @@ where
     fn index_mut(&mut self, i: Idx) -> &mut Self::Output {
         &mut self.items[Idx::as_(i - self.origin)]
     }
-}
-
-#[derive(Eq, PartialEq, Debug)]
-pub struct Neighbourhood<Idx, T> {
-    i: Idx,
-    items: [Option<T>; 3],
 }
 
 /// an ordered list of spans, ordered by `origin`, and coelesced opportunistically
