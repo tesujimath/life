@@ -89,7 +89,7 @@ where
     }
 
     /// consume the next item
-    fn consume_next(&'a mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
+    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
         let providers = self
             .n
             .items
@@ -118,10 +118,8 @@ where
     fn next(&mut self) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
         match self.determine_next() {
             Some(i) => {
-                // TODO lifetime problem here
-                //let result = self.consume_next(i);
-                //result
-                None
+                let result = self.consume_next(i);
+                result
             }
             None => None,
         }
