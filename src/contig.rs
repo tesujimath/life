@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use super::neighbourhood::Neighbourhood;
-use super::seekable::SeekableIterator;
+use super::seekable::SeekablePeekableIterator;
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
@@ -547,7 +547,7 @@ where
     }
 }
 
-impl<'a, Idx, T> SeekableIterator<Idx, Neighbourhood<'a, Idx, &'a T>>
+impl<'a, Idx, T> SeekablePeekableIterator<Idx, Neighbourhood<'a, Idx, &'a T>>
     for ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
@@ -594,6 +594,10 @@ where
         } else {
             (self.u_next, self.i_next) = self.c.find_with_adjacent(i_from);
         }
+    }
+
+    fn peek(&self) -> Option<Neighbourhood<'a, Idx, &'a T>> {
+        self.get_current()
     }
 }
 

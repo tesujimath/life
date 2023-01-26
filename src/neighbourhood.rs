@@ -1,10 +1,10 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
-use std::{iter::Peekable, marker::PhantomData};
+use std::marker::PhantomData;
 
 use super::indexed::Indexed;
-use super::seekable::SeekableIterator;
+use super::seekable::SeekablePeekableIterator;
 
 pub const N_SIZE: usize = 3;
 
@@ -40,30 +40,26 @@ impl<'a, Idx, T> Neighbourhood<'a, Idx, T> {
 // TODO this isn't neighbourhood specific, surely, just any collection of iterators?
 pub struct NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekableIterator<Idx, S>,
+    T: SeekablePeekableIterator<Idx, S>,
     S: Indexed<Idx>,
 {
-    n: Neighbourhood<'a, Idx, Peekable<T>>,
+    n: Neighbourhood<'a, Idx, T>,
     drivers: [bool; N_SIZE],
     phantom: PhantomData<S>,
 }
 
 impl<'a, Idx, T, S> NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekableIterator<Idx, S>,
+    T: SeekablePeekableIterator<Idx, S>,
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
     fn new(n: Neighbourhood<Idx, T>, drivers: [bool; N_SIZE]) -> NeighbourhoodIterator<Idx, T, S> {
         NeighbourhoodIterator {
-            n: Self::make_peekable(n),
+            n,
             drivers,
             phantom: PhantomData,
         }
-    }
-
-    fn make_peekable(n: Neighbourhood<Idx, T>) -> Neighbourhood<Idx, Peekable<T>> {
-        Neighbourhood::new(n.i, n.items.map(|it_o| it_o.map(|it| it.peekable())))
     }
 
     /// return index of next item
@@ -99,9 +95,10 @@ where
                 Some(p) => Some((u, p)),
                 None => None,
             });
-        // for (u, provider) in providers {
-        //     provider.peek().and_then(|x| x)
-        // }
+        for (u, ref mut provider) in providers {
+            provider.seek(i);
+            //match provider.peek().and_then(|x| x);
+        }
 
         None
     }
@@ -109,7 +106,7 @@ where
 
 impl<'a, Idx, T, S> Iterator for NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekableIterator<Idx, S>,
+    T: SeekablePeekableIterator<Idx, S>,
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
