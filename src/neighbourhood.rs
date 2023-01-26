@@ -1,7 +1,6 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
-use std::convert::identity;
 use std::{iter::Peekable, marker::PhantomData};
 
 use super::indexed::Indexed;
@@ -9,24 +8,47 @@ use super::seekable::SeekableIterator;
 
 pub const N_SIZE: usize = 3;
 
-/// an item and its siblings, any of which may be missing
+/// An item and its siblings, any of which may be missing.
+///
+/// # Intended Usage
+///
+/// Neighbourhoods may wrap value or reference types, and are expected  to be used as
+/// iterator items.  In this they are unusual, since the neighbourhoods are created during
+/// iteration, so cannot themselves be references, but may contain references to items in
+/// the underlying collection.
+///
+/// The phantom lifetime addresses exactly this, exposing the lifetime of any reference in `T`
+/// into the neighbourhood itself.
 #[derive(Eq, PartialEq, Debug)]
-pub struct Neighbourhood<Idx, T> {
+pub struct Neighbourhood<'a, Idx, T> {
     pub i: Idx,
     pub items: [Option<T>; N_SIZE],
+    phantom: PhantomData<&'a ()>,
 }
 
-pub struct NeighbourhoodIterator<Idx, T, S>
+impl<'a, Idx, T> Neighbourhood<'a, Idx, T> {
+    pub fn new(i: Idx, items: [Option<T>; N_SIZE]) -> Neighbourhood<'a, Idx, T> {
+        Neighbourhood {
+            i,
+            items,
+            phantom: PhantomData,
+        }
+    }
+}
+
+/// An iterator over a neighbourhood of seekable iterators.
+// TODO this isn't neighbourhood specific, surely, just any collection of iterators?
+pub struct NeighbourhoodIterator<'a, Idx, T, S>
 where
     T: SeekableIterator<Idx, S>,
     S: Indexed<Idx>,
 {
-    n: Neighbourhood<Idx, Peekable<T>>,
+    n: Neighbourhood<'a, Idx, Peekable<T>>,
     drivers: [bool; N_SIZE],
     phantom: PhantomData<S>,
 }
 
-impl<Idx, T, S> NeighbourhoodIterator<Idx, T, S>
+impl<'a, Idx, T, S> NeighbourhoodIterator<'a, Idx, T, S>
 where
     T: SeekableIterator<Idx, S>,
     S: Indexed<Idx>,
@@ -41,10 +63,7 @@ where
     }
 
     fn make_peekable(n: Neighbourhood<Idx, T>) -> Neighbourhood<Idx, Peekable<T>> {
-        Neighbourhood {
-            i: n.i,
-            items: n.items.map(|it_o| it_o.map(|it| it.peekable())),
-        }
+        Neighbourhood::new(n.i, n.items.map(|it_o| it_o.map(|it| it.peekable())))
     }
 
     /// return index of next item
@@ -70,7 +89,7 @@ where
     }
 
     /// consume the next item
-    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<Idx, S>)> {
+    fn consume_next(&'a mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
         let providers = self
             .n
             .items
@@ -88,15 +107,23 @@ where
     }
 }
 
-impl<Idx, T, S> Iterator for NeighbourhoodIterator<Idx, T, S>
+impl<'a, Idx, T, S> Iterator for NeighbourhoodIterator<'a, Idx, T, S>
 where
     T: SeekableIterator<Idx, S>,
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
-    type Item = (Idx, Neighbourhood<Idx, S>);
+    type Item = (Idx, Neighbourhood<'a, Idx, S>);
 
-    fn next(&mut self) -> Option<(Idx, Neighbourhood<Idx, S>)> {
-        self.determine_next().and_then(|i| self.consume_next(i))
+    fn next(&mut self) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
+        match self.determine_next() {
+            Some(i) => {
+                // TODO lifetime problem here
+                //let result = self.consume_next(i);
+                //result
+                None
+            }
+            None => None,
+        }
     }
 }

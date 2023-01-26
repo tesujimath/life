@@ -102,10 +102,7 @@ where
         let item = &self.items[u];
         let right = self.items.get(u + 1);
 
-        Neighbourhood {
-            i,
-            items: [left, Some(item), right],
-        }
+        Neighbourhood::new(i, [left, Some(item), right])
     }
 
     fn cmp(&self, i: &Idx) -> Ordering {
@@ -443,6 +440,54 @@ where
         ContigNeighbourhoodEnumerator { c, u_next, i_next }
     }
 
+    /// return the current neighbourhood without advancing
+    fn get_current(&self) -> Option<Neighbourhood<'a, Idx, &'a T>> {
+        // TODO tidy this up
+        if self.u_next < self.c.spans.len() {
+            let span = &self.c.spans[self.u_next];
+
+            let nbh = if span.contains(self.i_next) {
+                self.c.spans[self.u_next].get_neighbourhood(self.i_next)
+            } else if span.adjoins_left(self.i_next) {
+                // the item before this span, which could be in the gap between spans if that's a gap of one
+                let item_left = self
+                    .c
+                    .get_left_of(self.u_next)
+                    .and_then(|span_left| span_left.get(self.i_next - Idx::one()));
+                Neighbourhood::new(self.i_next, [item_left, None, span.get(span.origin)])
+            } else {
+                assert!(span.adjoins_right(self.i_next));
+
+                // there'll never be a gap of one situation here, since in that case we would have advanced onto the next span
+                Neighbourhood::new(
+                    self.i_next,
+                    [span.get(self.i_next - Idx::one()), None, None],
+                )
+            };
+
+            Some(nbh)
+        } else {
+            None
+        }
+    }
+
+    fn advance(&mut self) {
+        if self.u_next < self.c.spans.len() {
+            if self.u_next < self.c.spans.len() {
+                self.i_next += Idx::one();
+                if !self.c.spans[self.u_next].contains_or_adjoins(self.i_next) {
+                    self.u_next += 1;
+                    if self.u_next < self.c.spans.len() {
+                        self.i_next = self.c.spans[self.u_next].origin - Idx::one();
+                    }
+                }
+
+                self.u_next = self.c.normalised(self.u_next, self.i_next);
+            }
+        }
+    }
+
+    // TODO remove once SeekablePeekableIterator up and running
     /// return the neighbourhood for `i`,
     /// positioning the iterator after the returned item, which may be backwards
     fn get(&mut self, i: Idx) -> [Option<&'a T>; 3] {
@@ -493,53 +538,16 @@ where
         + AddAssign
         + SubAssign,
 {
-    type Item = Neighbourhood<Idx, &'a T>;
+    type Item = Neighbourhood<'a, Idx, &'a T>;
 
-    fn next(&mut self) -> Option<Neighbourhood<Idx, &'a T>> {
-        if self.u_next < self.c.spans.len() {
-            let span = &self.c.spans[self.u_next];
-
-            let nbh = if span.contains(self.i_next) {
-                self.c.spans[self.u_next].get_neighbourhood(self.i_next)
-            } else if span.adjoins_left(self.i_next) {
-                // the item before this span, which could be in the gap between spans if that's a gap of one
-                let item_left = self
-                    .c
-                    .get_left_of(self.u_next)
-                    .and_then(|span_left| span_left.get(self.i_next - Idx::one()));
-                Neighbourhood {
-                    i: self.i_next,
-                    items: [item_left, None, span.get(span.origin)],
-                }
-            } else {
-                assert!(span.adjoins_right(self.i_next));
-
-                // there'll never be a gap of one situation here, since in that case we would have advanced onto the next span
-                Neighbourhood {
-                    i: self.i_next,
-                    items: [span.get(self.i_next - Idx::one()), None, None],
-                }
-            };
-
-            // advance the enumerator
-            self.i_next += Idx::one();
-            if !self.c.spans[self.u_next].contains_or_adjoins(self.i_next) {
-                self.u_next += 1;
-                if self.u_next < self.c.spans.len() {
-                    self.i_next = self.c.spans[self.u_next].origin - Idx::one();
-                }
-            }
-
-            self.u_next = self.c.normalised(self.u_next, self.i_next);
-
-            Some(nbh)
-        } else {
-            None
-        }
+    fn next(&mut self) -> Option<Neighbourhood<'a, Idx, &'a T>> {
+        let result = self.get_current();
+        self.advance();
+        result
     }
 }
 
-impl<'a, Idx, T> SeekableIterator<Idx, Neighbourhood<Idx, &'a T>>
+impl<'a, Idx, T> SeekableIterator<Idx, Neighbourhood<'a, Idx, &'a T>>
     for ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
     Idx: Copy
@@ -668,9 +676,9 @@ where
     Idx: Copy,
 {
     row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
-    row_nbh: Option<Neighbourhood<Idx, &'a Contig<Idx, T>>>,
+    row_nbh: Option<Neighbourhood<'a, Idx, &'a Contig<Idx, T>>>,
 
-    column_enumerators: Option<Neighbourhood<Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>>>,
+    column_enumerators: Option<Neighbourhood<'a, Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>>>,
 }
 
 impl<'a, Idx, T> CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
@@ -714,12 +722,12 @@ where
         }
         if let Some(ref mut row_nbh) = self.row_nbh {
             self.column_enumerators = {
-                Some(Neighbourhood {
-                    i: row_nbh.i,
-                    items: row_nbh
+                Some(Neighbourhood::new(
+                    row_nbh.i,
+                    row_nbh
                         .items
                         .map(|item| item.map(|c| c.neighbourhood_enumerator())),
-                })
+                ))
             };
         }
     }
