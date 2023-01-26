@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 
 use super::indexed::Indexed;
-use super::seekable::SeekablePeekableIterator;
+use super::seekable::SeekableIterator;
 
 pub const N_SIZE: usize = 3;
 
@@ -34,13 +34,21 @@ impl<'a, Idx, T> Neighbourhood<'a, Idx, T> {
             phantom: PhantomData,
         }
     }
+
+    pub fn empty(i: Idx) -> Neighbourhood<'a, Idx, T> {
+        Neighbourhood {
+            i,
+            items: [None, None, None], // to shortcut as [None; N_SIZE] would require T: Copy
+            phantom: PhantomData,
+        }
+    }
 }
 
 /// An iterator over a neighbourhood of seekable iterators.
 // TODO this isn't neighbourhood specific, surely, just any collection of iterators?
 pub struct NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekablePeekableIterator<Idx, S>,
+    T: SeekableIterator<Idx, S>,
     S: Indexed<Idx>,
 {
     n: Neighbourhood<'a, Idx, T>,
@@ -50,7 +58,7 @@ where
 
 impl<'a, Idx, T, S> NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekablePeekableIterator<Idx, S>,
+    T: SeekableIterator<Idx, S>,
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
@@ -85,19 +93,11 @@ where
     }
 
     /// consume the next item
-    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
-        let providers = self
-            .n
-            .items
-            .iter()
-            .enumerate()
-            .filter_map(|(u, p_o)| match p_o {
-                Some(p) => Some((u, p)),
-                None => None,
-            });
-        for (u, ref mut provider) in providers {
-            provider.seek(i);
-            //match provider.peek().and_then(|x| x);
+    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, T>)> {
+        let mut items: Vec<Option<S>> = Vec::with_capacity(N_SIZE);
+        for p_o in self.n.items.iter_mut() {
+            let item = if let Some(p) = p_o { p.seek(i) } else { None };
+            items.push(item);
         }
 
         None
@@ -106,18 +106,15 @@ where
 
 impl<'a, Idx, T, S> Iterator for NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekablePeekableIterator<Idx, S>,
+    T: SeekableIterator<Idx, S>,
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
-    type Item = (Idx, Neighbourhood<'a, Idx, S>);
+    type Item = (Idx, Neighbourhood<'a, Idx, T>);
 
-    fn next(&mut self) -> Option<(Idx, Neighbourhood<'a, Idx, S>)> {
+    fn next(&mut self) -> Option<(Idx, Neighbourhood<'a, Idx, T>)> {
         match self.determine_next() {
-            Some(i) => {
-                let result = self.consume_next(i);
-                result
-            }
+            Some(i) => self.consume_next(i),
             None => None,
         }
     }

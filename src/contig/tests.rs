@@ -204,46 +204,16 @@ fn test_contig_neighbourhood_enumerator() {
     assert_eq!(
         enumerator_as_vec(&c),
         vec![
-            Neighbourhood {
-                i: 9,
-                items: [None, None, Some(&10)]
-            },
-            Neighbourhood {
-                i: 10,
-                items: [None, Some(&10), Some(&11)]
-            },
-            Neighbourhood {
-                i: 11,
-                items: [Some(&10), Some(&11), None]
-            },
-            Neighbourhood {
-                i: 12,
-                items: [Some(&11), None, Some(&13)]
-            },
-            Neighbourhood {
-                i: 13,
-                items: [None, Some(&13), Some(&14)]
-            },
-            Neighbourhood {
-                i: 14,
-                items: [Some(&13), Some(&14), None]
-            },
-            Neighbourhood {
-                i: 15,
-                items: [Some(&14), None, None]
-            },
-            Neighbourhood {
-                i: 19,
-                items: [None, None, Some(&20)]
-            },
-            Neighbourhood {
-                i: 20,
-                items: [None, Some(&20), None]
-            },
-            Neighbourhood {
-                i: 21,
-                items: [Some(&20), None, None]
-            },
+            Neighbourhood::new(9, [None, None, Some(&10)]),
+            Neighbourhood::new(10, [None, Some(&10), Some(&11)]),
+            Neighbourhood::new(11, [Some(&10), Some(&11), None]),
+            Neighbourhood::new(12, [Some(&11), None, Some(&13)]),
+            Neighbourhood::new(13, [None, Some(&13), Some(&14)]),
+            Neighbourhood::new(14, [Some(&13), Some(&14), None]),
+            Neighbourhood::new(15, [Some(&14), None, None]),
+            Neighbourhood::new(19, [None, None, Some(&20)]),
+            Neighbourhood::new(20, [None, Some(&20), None]),
+            Neighbourhood::new(21, [Some(&20), None, None]),
         ]
     );
 }
@@ -267,59 +237,56 @@ fn test_contig_neighbourhood_enumerator_seek() {
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 
-    e.seek(10);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((10, Some(&10))));
+    assert_eq!(e.seek(10).map(|n| (n.i, n.items[1])), Some((10, Some(&10))));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
 
-    e.seek(-1);
+    assert_eq!(e.seek(-1), None);
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((9, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((10, Some(&10))));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
 
-    e.seek(11);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
+    assert_eq!(e.seek(11).map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
 
-    e.seek(12);
+    assert_eq!(e.seek(12).map(|n| (n.i, n.items[1])), Some((12, None)));
+    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
+
+    assert_eq!(e.seek(11).map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 
-    e.seek(11);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((11, Some(&11))));
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
-
-    e.seek(19);
+    assert_eq!(e.seek(16), None);
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((19, None)));
+
+    assert_eq!(e.seek(19).map(|n| (n.i, n.items[1])), Some((19, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((20, Some(&120))));
 
-    e.seek(20);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((20, Some(&120))));
+    assert_eq!(
+        e.seek(20).map(|n| (n.i, n.items[1])),
+        Some((20, Some(&120)))
+    );
 
-    e.seek(21);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((21, None)));
+    assert_eq!(e.seek(21).map(|n| (n.i, n.items[1])), Some((21, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((29, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((30, Some(&130))));
 
-    e.seek(30);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((30, Some(&130))));
+    assert_eq!(
+        e.seek(30).map(|n| (n.i, n.items[1])),
+        Some((30, Some(&130)))
+    );
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((31, None)));
 
-    e.seek(31);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((31, None)));
+    assert_eq!(e.seek(31).map(|n| (n.i, n.items[1])), Some((31, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), None);
 
-    e.seek(31);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((31, None)));
+    assert_eq!(e.seek(31).map(|n| (n.i, n.items[1])), Some((31, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), None);
 
-    e.seek(100);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), None);
+    assert_eq!(e.seek(100).map(|n| (n.i, n.items[1])), None);
 
-    e.seek(12);
-    assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((12, None)));
+    assert_eq!(e.seek(12).map(|n| (n.i, n.items[1])), Some((12, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
 }
 
