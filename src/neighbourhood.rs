@@ -44,6 +44,15 @@ impl<'a, Idx, T> Neighbourhood<'a, Idx, T> {
     }
 }
 
+impl<'a, Idx, T> Indexed<Idx> for Neighbourhood<'a, Idx, T>
+where
+    Idx: Copy,
+{
+    fn index(&self) -> Idx {
+        self.i
+    }
+}
+
 /// An iterator over a neighbourhood of seekable iterators.
 // TODO this isn't neighbourhood specific, surely, just any collection of iterators?
 pub struct NeighbourhoodIterator<'a, Idx, T, S>
@@ -62,7 +71,10 @@ where
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
-    fn new(n: Neighbourhood<Idx, T>, drivers: [bool; N_SIZE]) -> NeighbourhoodIterator<Idx, T, S> {
+    pub fn new(
+        n: Neighbourhood<Idx, T>,
+        drivers: [bool; N_SIZE],
+    ) -> NeighbourhoodIterator<Idx, T, S> {
         NeighbourhoodIterator {
             n,
             drivers,
@@ -93,7 +105,7 @@ where
     }
 
     /// consume the next item
-    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, T>)> {
+    fn consume_next(&mut self, i: Idx) -> Option<(Idx, Neighbourhood<'a, Idx, &'a T>)> {
         let mut items: Vec<Option<S>> = Vec::with_capacity(N_SIZE);
         for p_o in self.n.items.iter_mut() {
             let item = if let Some(p) = p_o { p.seek(i) } else { None };
@@ -106,13 +118,13 @@ where
 
 impl<'a, Idx, T, S> Iterator for NeighbourhoodIterator<'a, Idx, T, S>
 where
-    T: SeekableIterator<Idx, S>,
+    T: SeekableIterator<Idx, S> + 'a,
     S: Indexed<Idx>,
     Idx: Copy + PartialOrd,
 {
-    type Item = (Idx, Neighbourhood<'a, Idx, T>);
+    type Item = (Idx, Neighbourhood<'a, Idx, &'a T>);
 
-    fn next(&mut self) -> Option<(Idx, Neighbourhood<'a, Idx, T>)> {
+    fn next(&mut self) -> Option<(Idx, Neighbourhood<'a, Idx, &'a T>)> {
         match self.determine_next() {
             Some(i) => self.consume_next(i),
             None => None,

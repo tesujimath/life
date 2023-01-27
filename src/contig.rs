@@ -1,6 +1,8 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
+use crate::neighbourhood::NeighbourhoodIterator;
+
 use super::neighbourhood::Neighbourhood;
 use super::seekable::SeekableIterator;
 use num::cast::AsPrimitive;
@@ -683,12 +685,26 @@ pub struct CartesianNeighbourhood<Idx, T> {
 
 pub struct CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
-    Idx: Copy,
+    Idx: Copy
+        + Default
+        + One
+        + FromPrimitive
+        + AsPrimitive<usize>
+        + Add<Output = Idx>
+        + Sub<Output = Idx>
+        + PartialOrd
+        + AddAssign
+        + SubAssign,
 {
     row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
-    row_nbh: Option<Neighbourhood<'a, Idx, &'a Contig<Idx, T>>>,
-
-    column_enumerators: Option<Neighbourhood<'a, Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>>>,
+    column_enumerator: Option<
+        NeighbourhoodIterator<
+            'a,
+            Idx,
+            ContigNeighbourhoodEnumerator<'a, Idx, T>,
+            Neighbourhood<'a, Idx, &'a T>,
+        >,
+    >,
 }
 
 impl<'a, Idx, T> CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
@@ -708,8 +724,7 @@ where
         let row_enumerator = c.0.neighbourhood_enumerator();
         let mut result = CartesianContigNeighbourhoodEnumerator {
             row_enumerator,
-            row_nbh: None,
-            column_enumerators: None,
+            column_enumerator: None,
         };
 
         result.advance_row();
@@ -719,9 +734,10 @@ where
 
     /// advance to the next non-empty row, if any
     fn advance_row(&mut self) {
+        let mut row_nbh_o: Option<Neighbourhood<Idx, &Contig<Idx, T>>>;
         loop {
-            self.row_nbh = self.row_enumerator.next();
-            match self.row_nbh {
+            row_nbh_o = self.row_enumerator.next();
+            match row_nbh_o {
                 Some(ref row_nbh) => {
                     if row_nbh.items[1].is_some() {
                         break;
@@ -730,41 +746,54 @@ where
                 None => break,
             }
         }
-        if let Some(ref mut row_nbh) = self.row_nbh {
-            self.column_enumerators = {
-                Some(Neighbourhood::new(
+
+        if let Some(ref mut row_nbh) = row_nbh_o {
+            // if the focused row is present, that drives the enumerator,
+            // otherwise whichever or both of the above/below rows
+            let drivers = match row_nbh.items {
+                [_, Some(_), _] => [false, true, false],
+                [Some(_), None, Some(_)] => [true, false, true],
+                [Some(_), None, None] => [true, false, false],
+                [None, None, Some(_)] => [false, false, true],
+                [None, None, None] => [false, false, false],
+            };
+
+            self.column_enumerator = Some(NeighbourhoodIterator::new(
+                Neighbourhood::new(
                     row_nbh.i,
                     row_nbh
                         .items
-                        .map(|item| item.map(|c| c.neighbourhood_enumerator())),
-                ))
-            };
+                        .map(|c_o| c_o.map(|c| c.neighbourhood_enumerator())),
+                ),
+                drivers,
+            ));
         }
     }
 
     /// return next column if any
     fn next_col(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
-        self.column_enumerators
-            .as_mut()
-            .and_then(|rows| match &mut rows.items[1] {
-                Some(ref mut row_1_e) => match row_1_e.next() {
-                    Some(row_1_nbh) => {
-                        let i_col = row_1_nbh.i;
-                        let absent: [Option<&'a T>; 3] = [None, None, None];
-                        Some(CartesianNeighbourhood {
-                            i_row: rows.i,
-                            i_col,
-                            items: [
-                                rows.items[0].as_mut().map_or(absent, |c| c.get(i_col)),
-                                row_1_nbh.items,
-                                rows.items[2].as_mut().map_or(absent, |c| c.get(i_col)),
-                            ],
-                        })
-                    }
-                    None => None,
-                },
-                None => None,
-            })
+        None
+        // self.column_enumerator
+        //     .as_mut()
+        //     .and_then(|rows| match &mut rows.items[1] {
+        //         Some(ref mut row_1_e) => match row_1_e.next() {
+        //             Some(row_1_nbh) => {
+        //                 let i_col = row_1_nbh.i;
+        //                 let absent: [Option<&'a T>; 3] = [None, None, None];
+        //                 Some(CartesianNeighbourhood {
+        //                     i_row: rows.i,
+        //                     i_col,
+        //                     items: [
+        //                         rows.items[0].as_mut().map_or(absent, |c| c.get(i_col)),
+        //                         row_1_nbh.items,
+        //                         rows.items[2].as_mut().map_or(absent, |c| c.get(i_col)),
+        //                     ],
+        //                 })
+        //             }
+        //             None => None,
+        //         },
+        //         None => None,
+        //     })
     }
 }
 
