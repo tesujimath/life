@@ -7,6 +7,7 @@ use num::FromPrimitive;
 use num::One;
 use num::Zero;
 use std::cmp::PartialOrd;
+use std::fmt::Debug;
 use std::iter::Iterator;
 use std::ops::Add;
 use std::ops::AddAssign;
@@ -73,7 +74,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     cc: CartesianContig<Idx, T>,
 }
@@ -91,7 +93,8 @@ where
         + AddAssign
         + SubAssign
         + Zero
-        + Ord,
+        + Ord
+        + Debug,
     T: Zero,
 {
     fn new() -> Playfield<Idx, T> {
@@ -166,7 +169,7 @@ where
     // space wasting conversion into packed vectors
     pub fn to_rows<H>(&self) -> (Vec<Vec<H>>, Coordinate<Idx>)
     where
-        Idx: FromPrimitive,
+        Idx: FromPrimitive + Debug,
         T: Copy,
         H: Zero + Copy,
     {

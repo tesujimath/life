@@ -11,6 +11,7 @@ use num::One;
 use std::cmp::Ordering;
 use std::cmp::PartialOrd;
 use std::collections::VecDeque;
+use std::fmt::Debug;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Index;
@@ -22,7 +23,7 @@ use std::ops::SubAssign;
 #[derive(Debug, Eq, PartialEq)]
 struct Span<Idx, T>
 where
-    Idx: Copy,
+    Idx: Copy + Debug,
 {
     /// position of leftmost item
     origin: Idx,
@@ -38,7 +39,8 @@ where
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     fn new(i: Idx, item: T) -> Span<Idx, T> {
         Span {
@@ -137,7 +139,8 @@ where
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     type Output = T;
 
@@ -155,7 +158,8 @@ where
         + Add<Output = Idx>
         + Sub<Output = Idx>
         + PartialOrd
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     fn index_mut(&mut self, i: Idx) -> &mut Self::Output {
         &mut self.items[Idx::as_(i - self.origin)]
@@ -166,7 +170,7 @@ where
 #[derive(Debug, Eq, PartialEq)]
 pub struct Contig<Idx, T>
 where
-    Idx: Copy,
+    Idx: Copy + Debug,
 {
     spans: VecDeque<Span<Idx, T>>,
 }
@@ -190,7 +194,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     fn new(i: Idx, item: T) -> Contig<Idx, T> {
         let s = Span::new(i, item);
@@ -349,7 +354,7 @@ where
 /// simple enumerator without the neighbourhood
 pub struct ContigEnumerator<'a, Idx, T>
 where
-    Idx: Copy,
+    Idx: Copy + Debug,
 {
     c: &'a Contig<Idx, T>,
     u_next: usize,
@@ -367,7 +372,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     fn new(c: &'a Contig<Idx, T>, u_next: usize, i_next: Idx) -> ContigEnumerator<'a, Idx, T> {
         ContigEnumerator { c, u_next, i_next }
@@ -396,7 +402,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     type Item = (Idx, &'a T);
 
@@ -415,7 +422,7 @@ where
 /// an iterator which returns neighbourhoods for all items and their adjacent siblings, with indices
 pub struct ContigNeighbourhoodEnumerator<'a, Idx, T>
 where
-    Idx: Copy,
+    Idx: Copy + Debug,
 {
     c: &'a Contig<Idx, T>,
     u_next: usize,
@@ -433,7 +440,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     fn new(c: &'a Contig<Idx, T>) -> ContigNeighbourhoodEnumerator<'a, Idx, T> {
         let u_next = 0;
@@ -538,7 +546,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     type Item = Neighbourhood<'a, Idx, &'a T>;
 
@@ -561,7 +570,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     /// seek to any index including adjacent locations
     fn seek(&mut self, i_from: Idx) -> Option<Neighbourhood<'a, Idx, &'a T>> {
@@ -622,7 +632,7 @@ where
 #[derive(Debug)]
 pub struct CartesianContig<Idx, T>(Contig<Idx, Contig<Idx, T>>)
 where
-    Idx: Copy;
+    Idx: Copy + Debug;
 
 impl<Idx, T> CartesianContig<Idx, T>
 where
@@ -636,7 +646,8 @@ where
         + PartialOrd
         + Ord
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     /// create almost empty, with a single cell
     pub fn new(x: Idx, y: Idx, item: T) -> CartesianContig<Idx, T> {
@@ -694,7 +705,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
     column_enumerator: Option<
@@ -718,7 +730,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     fn new(c: &'a CartesianContig<Idx, T>) -> CartesianContigNeighbourhoodEnumerator<'a, Idx, T> {
         let row_enumerator = c.0.neighbourhood_enumerator();
@@ -757,6 +770,8 @@ where
                 [None, None, Some(_)] => [false, false, true],
                 [None, None, None] => [false, false, false],
             };
+
+            println!("drivers for row {:?}: {:?}", row_nbh.i, drivers);
 
             self.column_enumerator = Some(NeighbourhoodIterator::new(
                 Neighbourhood::new(
@@ -808,7 +823,8 @@ where
         + Sub<Output = Idx>
         + PartialOrd
         + AddAssign
-        + SubAssign,
+        + SubAssign
+        + Debug,
 {
     type Item = CartesianNeighbourhood<Idx, &'a T>;
 
