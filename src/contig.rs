@@ -1,10 +1,8 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code)]
 
-use crate::neighbourhood::NeighbourhoodIterator;
-
+use super::multi_iterator::{MultiIterator, SeekableIterator};
 use super::neighbourhood::Neighbourhood;
-use super::seekable::SeekableIterator;
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
@@ -496,43 +494,6 @@ where
             }
         }
     }
-
-    // TODO remove once SeekablePeekableIterator up and running
-    /// return the neighbourhood for `i`,
-    /// positioning the iterator after the returned item, which may be backwards
-    fn get(&mut self, i: Idx) -> [Option<&'a T>; 3] {
-        let i_left = i - Idx::one();
-        let i_right = i + Idx::one();
-
-        if i < self.i_next {
-            (self.u_next, self.i_next) = self.c.find_with_adjacent(i);
-        }
-
-        // skip contig
-        while self.u_next < self.c.spans.len()
-            && self.c.spans[self.u_next].cmp(&i) == Ordering::Less
-        {
-            self.u_next += 1;
-        }
-
-        if self.u_next < self.c.spans.len() {
-            let c = &self.c.spans[self.u_next];
-            let item_this = c.get(i);
-            let item_left = match item_this {
-                Some(_) => c.get(i_left),
-                // this is the tricky case where we have to look in the contig to the left, if any:
-                None => c
-                    .get(i_left)
-                    .or_else(|| self.c.get_in_left(self.u_next, i_left)),
-            };
-            let item_right = c.get(i_right);
-            [item_left, item_this, item_right]
-        } else {
-            // again, we need to look in the contig to the left, if any
-            let item_left = self.c.get_in_left(self.u_next, i_left);
-            [item_left, None, None]
-        }
-    }
 }
 
 impl<'a, Idx, T> Iterator for ContigNeighbourhoodEnumerator<'a, Idx, T>
@@ -710,8 +671,7 @@ where
 {
     row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
     column_enumerator: Option<
-        NeighbourhoodIterator<
-            'a,
+        MultiIterator<
             Idx,
             ContigNeighbourhoodEnumerator<'a, Idx, T>,
             Neighbourhood<'a, Idx, &'a T>,
@@ -764,24 +724,22 @@ where
             // if the focused row is present, that drives the enumerator,
             // otherwise whichever or both of the above/below rows
             let drivers = match row_nbh.items {
-                [_, Some(_), _] => [false, true, false],
-                [Some(_), None, Some(_)] => [true, false, true],
-                [Some(_), None, None] => [true, false, false],
-                [None, None, Some(_)] => [false, false, true],
-                [None, None, None] => [false, false, false],
+                [_, Some(_), _] => vec![false, true, false],
+                [Some(_), None, Some(_)] => vec![true, false, true],
+                [Some(_), None, None] => vec![true, false, false],
+                [None, None, Some(_)] => vec![false, false, true],
+                [None, None, None] => vec![false, false, false],
             };
 
             println!("drivers for row {:?}: {:?}", row_nbh.i, drivers);
 
-            self.column_enumerator = Some(NeighbourhoodIterator::new(
-                Neighbourhood::new(
-                    row_nbh.i,
-                    row_nbh
-                        .items
-                        .map(|c_o| c_o.map(|c| c.neighbourhood_enumerator())),
-                ),
-                drivers,
-            ));
+            let iterators = row_nbh
+                .items
+                .iter()
+                .map(|c_o| c_o.map(|c| c.neighbourhood_enumerator()))
+                .collect::<Vec<Option<ContigNeighbourhoodEnumerator<Idx, T>>>>();
+
+            self.column_enumerator = Some(MultiIterator::new(iterators, drivers));
         }
     }
 

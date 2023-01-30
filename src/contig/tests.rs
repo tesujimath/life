@@ -1,4 +1,4 @@
-#[cfg(test)]
+#![cfg(test)]
 use super::*;
 
 #[test]
@@ -288,19 +288,6 @@ fn test_contig_neighbourhood_enumerator_seek() {
 
     assert_eq!(e.seek(12).map(|n| (n.i, n.items[1])), Some((12, None)));
     assert_eq!(e.next().map(|n| (n.i, n.items[1])), Some((13, Some(&13))));
-}
-
-#[test]
-fn test_contig_neighbourhood_enumerator_get() {
-    let c = Contig::from(vec![(10, 10u8), (11, 11u8), (13, 13u8)]).unwrap();
-
-    let mut e = c.neighbourhood_enumerator();
-    assert_eq!(e.get(9), [None, None, Some(&10u8)]);
-    assert_eq!(e.get(10), [None, Some(&10u8), Some(&11u8)]);
-    assert_eq!(e.get(11), [Some(&10u8), Some(&11u8), None]);
-    assert_eq!(e.get(12), [Some(&11u8), None, Some(&13u8)]);
-    assert_eq!(e.get(13), [None, Some(&13u8), None]);
-    assert_eq!(e.get(14), [Some(&13u8), None, None]);
 }
 
 #[test]

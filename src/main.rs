@@ -3,7 +3,6 @@ fn main() {
 }
 
 mod contig;
-mod indexed;
+mod multi_iterator;
 mod neighbourhood;
 mod playfield;
-mod seekable;
