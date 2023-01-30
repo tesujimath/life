@@ -3,7 +3,7 @@
 
 use super::contig::{Contig, ContigEnumerator, ContigNeighbourhoodEnumerator};
 use super::multi_iterator::MultiIterator;
-use super::neighbourhood::Neighbourhood;
+use super::neighbourhood::{Neighbourhood, N_SIZE};
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
@@ -87,7 +87,33 @@ where
 pub struct CartesianNeighbourhood<Idx, T> {
     i_row: Idx,
     i_col: Idx,
-    items: [[Option<T>; 3]; 3], // first index is row
+    items: [[Option<T>; N_SIZE]; N_SIZE], // first index is row
+}
+
+impl<Idx, T> CartesianNeighbourhood<Idx, T> {
+    fn new(
+        i_row: Idx,
+        i_col: Idx,
+        nbhs: Vec<Option<Neighbourhood<Idx, T>>>,
+    ) -> CartesianNeighbourhood<Idx, T>
+    where
+        T: Debug,
+    {
+        CartesianNeighbourhood {
+            i_row,
+            i_col,
+            //items: items.try_into().unwrap(),
+            items: nbhs
+                .into_iter()
+                .map(|nbho| match nbho {
+                    Some(nbh) => nbh.items, // TODO we could get i_col here
+                    None => [None, None, None],
+                })
+                .collect::<Vec<[Option<T>; N_SIZE]>>()
+                .try_into()
+                .unwrap(),
+        }
+    }
 }
 
 pub struct CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
@@ -105,12 +131,11 @@ where
         + Debug,
 {
     row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
-    column_enumerator: Option<
-        MultiIterator<
-            Idx,
-            ContigNeighbourhoodEnumerator<'a, Idx, T>,
-            Neighbourhood<'a, Idx, &'a T>,
-        >,
+    i_row: Option<Idx>,
+    column_enumerator: MultiIterator<
+        Idx,
+        ContigNeighbourhoodEnumerator<'a, Idx, T>,
+        Neighbourhood<'a, Idx, &'a T>,
     >,
 }
 
@@ -130,59 +155,81 @@ where
         + Debug,
 {
     fn new(c: &'a CartesianContig<Idx, T>) -> CartesianContigNeighbourhoodEnumerator<'a, Idx, T> {
-        let row_enumerator = c.0.neighbourhood_enumerator();
-        let mut result = CartesianContigNeighbourhoodEnumerator {
+        let mut row_enumerator = c.0.neighbourhood_enumerator();
+        let (i_row, column_enumerator) =
+            CartesianContigNeighbourhoodEnumerator::get_next_row(&mut row_enumerator);
+
+        CartesianContigNeighbourhoodEnumerator {
             row_enumerator,
-            column_enumerator: None,
-        };
+            i_row,
+            column_enumerator,
+        }
+    }
 
-        result.advance_row();
+    fn get_next_row(
+        row_enumerator: &mut ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
+    ) -> (
+        Option<Idx>,
+        MultiIterator<
+            Idx,
+            ContigNeighbourhoodEnumerator<'a, Idx, T>,
+            Neighbourhood<'a, Idx, &'a T>,
+        >,
+    ) {
+        let row = row_enumerator.next();
+        let i_row = row.as_ref().map(|n| n.i);
+        let column_enumerator =
+            CartesianContigNeighbourhoodEnumerator::multi_iterator_for_row_neighbourhood(row);
+        (i_row, column_enumerator)
+    }
 
-        result
+    fn multi_iterator_for_row_neighbourhood(
+        row_nbh_o: Option<Neighbourhood<Idx, &'a Contig<Idx, T>>>,
+    ) -> MultiIterator<Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>, Neighbourhood<'a, Idx, &'a T>>
+    {
+        match row_nbh_o {
+            Some(row_nbh) => {
+                // if the focused row is present, that drives the enumerator,
+                // otherwise whichever or both of the above/below rows
+                let drivers = match row_nbh.items {
+                    [_, Some(_), _] => vec![false, true, false],
+                    [Some(_), None, Some(_)] => vec![true, false, true],
+                    [Some(_), None, None] => vec![true, false, false],
+                    [None, None, Some(_)] => vec![false, false, true],
+                    [None, None, None] => vec![false, false, false],
+                };
+
+                println!("contig drivers for row {:?}: {:?}", row_nbh.i, drivers);
+
+                let iterators = row_nbh
+                    .items
+                    .iter()
+                    .map(|c_o| c_o.map(|c| c.neighbourhood_enumerator()))
+                    .collect::<Vec<Option<ContigNeighbourhoodEnumerator<Idx, T>>>>();
+
+                MultiIterator::new(iterators, drivers)
+            }
+            None => MultiIterator::new(vec![None, None, None], vec![false, false, false]),
+        }
     }
 
     /// advance to the next non-empty row, if any
     fn advance_row(&mut self) {
-        let mut row_nbh_o: Option<Neighbourhood<Idx, &Contig<Idx, T>>>;
-        loop {
-            row_nbh_o = self.row_enumerator.next();
-            match row_nbh_o {
-                Some(ref row_nbh) => {
-                    if row_nbh.items[1].is_some() {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
-
-        if let Some(ref mut row_nbh) = row_nbh_o {
-            // if the focused row is present, that drives the enumerator,
-            // otherwise whichever or both of the above/below rows
-            let drivers = match row_nbh.items {
-                [_, Some(_), _] => vec![false, true, false],
-                [Some(_), None, Some(_)] => vec![true, false, true],
-                [Some(_), None, None] => vec![true, false, false],
-                [None, None, Some(_)] => vec![false, false, true],
-                [None, None, None] => vec![false, false, false],
-            };
-
-            println!("contig drivers for row {:?}: {:?}", row_nbh.i, drivers);
-
-            let iterators = row_nbh
-                .items
-                .iter()
-                .map(|c_o| c_o.map(|c| c.neighbourhood_enumerator()))
-                .collect::<Vec<Option<ContigNeighbourhoodEnumerator<Idx, T>>>>();
-
-            self.column_enumerator = Some(MultiIterator::new(iterators, drivers));
-        }
+        (self.i_row, self.column_enumerator) =
+            CartesianContigNeighbourhoodEnumerator::get_next_row(&mut self.row_enumerator);
     }
 
     /// return next column if any
     fn next_col(&mut self) -> Option<CartesianNeighbourhood<Idx, &'a T>> {
-        None
-        // self.column_enumerator
+        match self.column_enumerator.next() {
+            Some((i_col, items)) => Some(CartesianNeighbourhood::new(
+                self.i_row.unwrap(),
+                i_col,
+                items,
+            )),
+            None => None,
+        }
+
         //     .as_mut()
         //     .and_then(|rows| match &mut rows.items[1] {
         //         Some(ref mut row_1_e) => match row_1_e.next() {
