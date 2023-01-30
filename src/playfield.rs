@@ -1,7 +1,7 @@
 // TODO remove suppression for dead code warning
 #![allow(dead_code, unused_variables)]
 
-use super::contig::{CartesianContig, Coordinate};
+use super::cartesian::{CartesianContig, Coordinate};
 use num::cast::AsPrimitive;
 use num::FromPrimitive;
 use num::One;
