@@ -30,7 +30,7 @@ impl<'a> VecSeekableIterator<'a> {
 
     fn get_current(&self) -> Option<IndexedItem> {
         if self.i_next < self.vec.len() {
-            self.vec[self.i_next].and_then(|item| Some(IndexedItem::new(self.i_next, item)))
+            self.vec[self.i_next].map(|item| IndexedItem::new(self.i_next, item))
         } else {
             None
         }
@@ -76,22 +76,14 @@ impl<'a> SeekableIterator<usize, IndexedItem> for VecSeekableIterator<'a> {
         if self.i_next == i {
             let item = self.get_current();
             self.advance();
-
-            println!("VecSeekableIterator::seek({}) = {:?}", i, item);
-
             item
         } else {
-            println!("VecSeekableIterator::seek({}) = None", i);
             None
         }
     }
 
     fn peek(&self) -> Option<IndexedItem> {
-        let item = self.get_current();
-
-        println!("VecSeekableIterator::peek() = {:?}", item);
-
-        item
+        self.get_current()
     }
 }
 

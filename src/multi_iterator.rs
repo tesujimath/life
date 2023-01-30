@@ -26,7 +26,6 @@ where
     drivers: Vec<bool>,
     phantom_idx: PhantomData<Idx>,
     phantom_t: PhantomData<T>,
-    ttl: usize,
 }
 
 impl<Idx, I, T> MultiIterator<Idx, I, T>
@@ -41,40 +40,29 @@ where
             drivers,
             phantom_idx: PhantomData,
             phantom_t: PhantomData,
-            ttl: 10,
         }
     }
 
     /// return index of next item
     fn determine_next(&mut self) -> Option<Idx> {
-        if self.ttl > 0 {
-            let mut min_o: Option<Idx> = None;
-            for (u, driver) in self.drivers.iter().enumerate() {
-                if *driver {
-                    let next_o = self.iterators[u]
-                        .as_mut()
-                        .and_then(|ref mut it| it.peek().map(|item| item.index()));
+        let mut min_o: Option<Idx> = None;
+        for (u, driver) in self.drivers.iter().enumerate() {
+            if *driver {
+                let next_o = self.iterators[u]
+                    .as_mut()
+                    .and_then(|ref mut it| it.peek().map(|item| item.index()));
 
-                    match (min_o, next_o) {
-                        (None, _) => {
-                            min_o = next_o;
-                        }
-                        (Some(min), Some(next)) if next < min => min_o = next_o,
-                        _ => (),
+                match (min_o, next_o) {
+                    (None, _) => {
+                        min_o = next_o;
                     }
+                    (Some(min), Some(next)) if next < min => min_o = next_o,
+                    _ => (),
                 }
             }
-
-            self.ttl -= 1;
-            println!(
-                "MultiIterator::determine_next() = {:?}, ttl = {}",
-                min_o, self.ttl
-            );
-
-            min_o
-        } else {
-            None
         }
+
+        min_o
     }
 
     /// consume the next item
@@ -84,8 +72,6 @@ where
             let item = if let Some(p) = p_o { p.seek(i) } else { None };
             items.push(item);
         }
-
-        println!("MultiIterator::consume_next({:?}) = {:?}", i, items);
 
         Some((i, items))
     }

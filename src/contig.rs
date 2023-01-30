@@ -481,17 +481,15 @@ where
 
     fn advance(&mut self) {
         if self.u_next < self.c.spans.len() {
-            if self.u_next < self.c.spans.len() {
-                self.i_next += Idx::one();
-                if !self.c.spans[self.u_next].contains_or_adjoins(self.i_next) {
-                    self.u_next += 1;
-                    if self.u_next < self.c.spans.len() {
-                        self.i_next = self.c.spans[self.u_next].origin - Idx::one();
-                    }
+            self.i_next += Idx::one();
+            if !self.c.spans[self.u_next].contains_or_adjoins(self.i_next) {
+                self.u_next += 1;
+                if self.u_next < self.c.spans.len() {
+                    self.i_next = self.c.spans[self.u_next].origin - Idx::one();
                 }
-
-                self.u_next = self.c.normalised(self.u_next, self.i_next);
             }
+
+            self.u_next = self.c.normalised(self.u_next, self.i_next);
         }
     }
 }

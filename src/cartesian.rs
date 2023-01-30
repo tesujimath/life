@@ -102,11 +102,10 @@ impl<Idx, T> CartesianNeighbourhood<Idx, T> {
         CartesianNeighbourhood {
             i_row,
             i_col,
-            //items: items.try_into().unwrap(),
             items: nbhs
                 .into_iter()
                 .map(|nbho| match nbho {
-                    Some(nbh) => nbh.items, // TODO we could get i_col here
+                    Some(nbh) => nbh.items,
                     None => [None, None, None],
                 })
                 .collect::<Vec<[Option<T>; N_SIZE]>>()
@@ -115,6 +114,10 @@ impl<Idx, T> CartesianNeighbourhood<Idx, T> {
         }
     }
 }
+
+/// the MultiIterator instantiated for CarteisianContigNeighbourhoodEnumerator
+type CartesianContigNeighborhoodMultiIterator<'a, Idx, T> =
+    MultiIterator<Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>, Neighbourhood<'a, Idx, &'a T>>;
 
 pub struct CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
@@ -132,11 +135,7 @@ where
 {
     row_enumerator: ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
     i_row: Option<Idx>,
-    column_enumerator: MultiIterator<
-        Idx,
-        ContigNeighbourhoodEnumerator<'a, Idx, T>,
-        Neighbourhood<'a, Idx, &'a T>,
-    >,
+    column_enumerator: CartesianContigNeighborhoodMultiIterator<'a, Idx, T>,
 }
 
 impl<'a, Idx, T> CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
@@ -170,11 +169,7 @@ where
         row_enumerator: &mut ContigNeighbourhoodEnumerator<'a, Idx, Contig<Idx, T>>,
     ) -> (
         Option<Idx>,
-        MultiIterator<
-            Idx,
-            ContigNeighbourhoodEnumerator<'a, Idx, T>,
-            Neighbourhood<'a, Idx, &'a T>,
-        >,
+        CartesianContigNeighborhoodMultiIterator<'a, Idx, T>,
     ) {
         let row = row_enumerator.next();
         let i_row = row.as_ref().map(|n| n.i);
@@ -185,8 +180,7 @@ where
 
     fn multi_iterator_for_row_neighbourhood(
         row_nbh_o: Option<Neighbourhood<Idx, &'a Contig<Idx, T>>>,
-    ) -> MultiIterator<Idx, ContigNeighbourhoodEnumerator<'a, Idx, T>, Neighbourhood<'a, Idx, &'a T>>
-    {
+    ) -> CartesianContigNeighborhoodMultiIterator<'a, Idx, T> {
         match row_nbh_o {
             Some(row_nbh) => {
                 // if the focused row is present, that drives the enumerator,
@@ -198,8 +192,6 @@ where
                     [None, None, Some(_)] => vec![false, false, true],
                     [None, None, None] => vec![false, false, false],
                 };
-
-                println!("contig drivers for row {:?}: {:?}", row_nbh.i, drivers);
 
                 let iterators = row_nbh
                     .items
