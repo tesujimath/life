@@ -82,6 +82,7 @@ where
 
 impl<Idx, T> Playfield<Idx, T>
 where
+    T: Debug,
     Idx: Copy
         + Default
         + One

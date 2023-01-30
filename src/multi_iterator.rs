@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// something which has an index
@@ -25,13 +26,14 @@ where
     drivers: Vec<bool>,
     phantom_idx: PhantomData<Idx>,
     phantom_t: PhantomData<T>,
+    ttl: usize,
 }
 
 impl<Idx, I, T> MultiIterator<Idx, I, T>
 where
     I: SeekableIterator<Idx, T>,
-    T: Indexed<Idx>,
-    Idx: Copy + PartialOrd,
+    T: Indexed<Idx> + Debug,
+    Idx: Copy + PartialOrd + Debug,
 {
     pub fn new(iterators: Vec<Option<I>>, drivers: Vec<bool>) -> MultiIterator<Idx, I, T> {
         MultiIterator {
@@ -39,29 +41,40 @@ where
             drivers,
             phantom_idx: PhantomData,
             phantom_t: PhantomData,
+            ttl: 10,
         }
     }
 
     /// return index of next item
     fn determine_next(&mut self) -> Option<Idx> {
-        let mut min_o: Option<Idx> = None;
-        for (u, driver) in self.drivers.iter().enumerate() {
-            if *driver {
-                let next_o = self.iterators[u]
-                    .as_mut()
-                    .and_then(|ref mut it| it.peek().map(|item| item.index()));
+        if self.ttl > 0 {
+            let mut min_o: Option<Idx> = None;
+            for (u, driver) in self.drivers.iter().enumerate() {
+                if *driver {
+                    let next_o = self.iterators[u]
+                        .as_mut()
+                        .and_then(|ref mut it| it.peek().map(|item| item.index()));
 
-                match (min_o, next_o) {
-                    (None, _) => {
-                        min_o = next_o;
+                    match (min_o, next_o) {
+                        (None, _) => {
+                            min_o = next_o;
+                        }
+                        (Some(min), Some(next)) if next < min => min_o = next_o,
+                        _ => (),
                     }
-                    (Some(min), Some(next)) if next < min => min_o = next_o,
-                    _ => (),
                 }
             }
-        }
 
-        min_o
+            self.ttl -= 1;
+            println!(
+                "MultiIterator::determine_next() = {:?}, ttl = {}",
+                min_o, self.ttl
+            );
+
+            min_o
+        } else {
+            None
+        }
     }
 
     /// consume the next item
@@ -72,15 +85,17 @@ where
             items.push(item);
         }
 
-        None
+        println!("MultiIterator::consume_next({:?}) = {:?}", i, items);
+
+        Some((i, items))
     }
 }
 
 impl<Idx, I, T> Iterator for MultiIterator<Idx, I, T>
 where
     I: SeekableIterator<Idx, T>,
-    T: Indexed<Idx>,
-    Idx: Copy + PartialOrd,
+    T: Indexed<Idx> + Debug,
+    Idx: Copy + PartialOrd + Debug,
 {
     type Item = (Idx, Vec<Option<T>>);
 

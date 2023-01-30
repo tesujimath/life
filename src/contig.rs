@@ -597,6 +597,7 @@ where
 
 impl<Idx, T> CartesianContig<Idx, T>
 where
+    T: Debug,
     Idx: Copy
         + Default
         + One
@@ -681,6 +682,7 @@ where
 
 impl<'a, Idx, T> CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
+    T: Debug,
     Idx: Copy
         + Default
         + One
@@ -731,7 +733,7 @@ where
                 [None, None, None] => vec![false, false, false],
             };
 
-            println!("drivers for row {:?}: {:?}", row_nbh.i, drivers);
+            println!("contig drivers for row {:?}: {:?}", row_nbh.i, drivers);
 
             let iterators = row_nbh
                 .items
@@ -772,6 +774,7 @@ where
 
 impl<'a, Idx, T> Iterator for CartesianContigNeighbourhoodEnumerator<'a, Idx, T>
 where
+    T: Debug,
     Idx: Copy
         + Default
         + One
