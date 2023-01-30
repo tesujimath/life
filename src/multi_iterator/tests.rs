@@ -28,7 +28,7 @@ impl<'a> VecSeekableIterator<'a> {
         self.skip_missing();
     }
 
-    fn get_indexed_item(&self) -> Option<IndexedItem> {
+    fn get_current(&self) -> Option<IndexedItem> {
         if self.i_next < self.vec.len() {
             self.vec[self.i_next].and_then(|item| Some(IndexedItem::new(self.i_next, item)))
         } else {
@@ -54,7 +54,7 @@ impl<'a> Iterator for VecSeekableIterator<'a> {
 
     fn next(&mut self) -> Option<IndexedItem> {
         if self.i_next < self.vec.len() {
-            let item = self.get_indexed_item();
+            let item = self.get_current();
             self.advance();
             item
         } else {
@@ -74,7 +74,7 @@ impl<'a> SeekableIterator<usize, IndexedItem> for VecSeekableIterator<'a> {
         self.i_next = i;
         self.skip_missing();
         if self.i_next == i {
-            let item = self.get_indexed_item();
+            let item = self.get_current();
             self.advance();
 
             println!("VecSeekableIterator::seek({}) = {:?}", i, item);
@@ -87,7 +87,7 @@ impl<'a> SeekableIterator<usize, IndexedItem> for VecSeekableIterator<'a> {
     }
 
     fn peek(&self) -> Option<IndexedItem> {
-        let item = self.get_indexed_item();
+        let item = self.get_current();
 
         println!("VecSeekableIterator::peek() = {:?}", item);
 
