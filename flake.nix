@@ -1,21 +1,40 @@
 {
-  description = "virtual environments";
+  description = "A flake to pin nikpkgs and load a devShell";
 
-  inputs.devshell.url = "github:numtide/devshell";
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs = {
+    nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
 
-  outputs = { self, flake-utils, devshell, nixpkgs }:
-    flake-utils.lib.eachDefaultSystem (system: {
-      devShell =
-        let pkgs = import nixpkgs {
-          inherit system;
-
-          config = { allowUnfree = true; };
-          overlays = [ devshell.overlay ];
-        };
+  outputs = { self, nixpkgs, rust-overlay, flake-utils }:
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          overlays = [ (import rust-overlay) ];
+          pkgs = import nixpkgs {
+            inherit system overlays;
+          };
+          # cargo-nightly based on https://github.com/oxalica/rust-overlay/issues/82
+          nightly = pkgs.rust-bin.selectLatestNightlyWith (t: t.default);
+          cargo-nightly = pkgs.writeShellScriptBin "cargo-nightly" ''
+              export RUSTC="${nightly}/bin/rustc";
+              exec "${nightly}/bin/cargo" "$@"
+          '';
         in
-        pkgs.devshell.mkShell {
-          imports = [ (pkgs.devshell.importTOML ./devshell.toml) ];
-        };
-    });
+          with pkgs;
+          {
+            devShells.default = mkShell {
+              nativeBuildInputs = [
+                cargo-flamegraph
+                cargo-nightly
+                gcc
+                gdb
+                rust-analyzer
+                rust-bin.stable.latest.default
+                rustfmt
+              ];
+            };
+          }
+      );
 }
