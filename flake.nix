@@ -1,5 +1,5 @@
 {
-  description = "A flake to pin nikpkgs and load a devShell";
+  description = "A Rust development environment flake.";
 
   inputs = {
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
